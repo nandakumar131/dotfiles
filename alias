@@ -1,5 +1,10 @@
 
-alias goto='cd $(cat ~/.dotfiles/gotolocations | fzf --height 50% --reverse)'
+alias reload!='. ~/.zshrc'
+
+# Print each PATH entry on a separate line
+alias path='echo -e ${PATH//:/\\n}'
+
+alias goto='cd ${HOME}/$(cat ${HOME}/.dotfiles/gotolocations | fzf --height 50% --reverse)'
 
 # Git
 alias gb='git branch -v'
