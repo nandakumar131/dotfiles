@@ -1,0 +1,5 @@
+
+alias goto='cd $(cat ~/.dotfiles/gotolocations | fzf --height 50% --reverse)'
+
+# Git
+alias gb='git branch -v'
