@@ -15,7 +15,7 @@ set ignorecase
 set incsearch
 
 " Enable mouse in all modes
-set mouse=a
+set mouse=v
 
 " Show the filename in the window titlebar
 set title

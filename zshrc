@@ -13,8 +13,8 @@ compinit -i
 autoload -U add-zsh-hook
 load-local-conf() {
      # check file exists, is regular file and is readable:
-     if [[ -f .dev-tools/env && -r .dev-tools/env ]]; then
-       source .dev-tools/env
+     if [[ -f .git/env && -r .git/env ]]; then
+       source .git/env
      fi
 }
 add-zsh-hook chpwd load-local-conf
