@@ -1,5 +1,6 @@
 
-PROMPT='%2~ > '
+autoload -U colors && colors
+PROMPT="%{$fg[blue]%} ❯ %{$reset_color%}"
 
 PATH=/Users/nvadivelu/.pyenv/versions/3.10.6/bin:/Applications/Maven/bin:/Applications/gh/bin:/opt/homebrew/bin:/Users/nvadivelu/Tools/scripts:$PATH
 fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )
@@ -24,3 +25,7 @@ add-zsh-hook chpwd load-local-conf
 [ -f ~/.dotfiles/functions ] && source ~/.dotfiles/functions
 
 export JAVA_HOME=$(/usr/libexec/java_home -v 1.8.0)
+export GOPATH='/Users/nvadivelu/Codebase/go'
+
+# starship prompt
+eval "$(starship init zsh)"
