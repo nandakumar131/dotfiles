@@ -1,4 +1,10 @@
 
+[hostname]
+disabled = true
+
+[username]
+disabled = true
+
 [java]
 disabled = true
 
