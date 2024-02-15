@@ -7,8 +7,9 @@ fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )
 
 zstyle ':completion:*:*:git:*' script ~/.dotfiles/git-completion.bash
 
-autoload -U compinit
-compinit -i
+source ~/.dotfiles/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+#autoload -U compinit
+#compinit -i
 
 # Hook to load env fine from .dev-tools directory
 autoload -U add-zsh-hook
@@ -24,8 +25,12 @@ add-zsh-hook chpwd load-local-conf
 [ -f ~/.dotfiles/alias ] && source ~/.dotfiles/alias
 [ -f ~/.dotfiles/functions ] && source ~/.dotfiles/functions
 
-export JAVA_HOME=$(/usr/libexec/java_home -v 1.8.0)
 export GOPATH='/Users/nvadivelu/Codebase/go'
+export LIMA_SHELL='zsh'
 
 # starship prompt
 eval "$(starship init zsh)"
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
