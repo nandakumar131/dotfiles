@@ -11,10 +11,81 @@ gc() {
     git checkout ${branch}
 }
 
-# Git Checkout PR
-ghc() {
+gupdate() {
+    echo "Fetching Upstream"
+    git fetch upstream
+    echo "Merging Upstream master"
+    git merge upstream/master
+    echo "Pushing origin master"
+    git push origin master
+  }
+
+fzf-command-widget() {
+    echo
+    command=$(cat ${HOME}/.dotfiles/frequent-commands | fzf --height 50% --reverse)
+    echo ${command}
+    eval ${command}
+    zle .reset-prompt
+  }
+
+# Github PR
+ghpr() {
     git rev-parse --git-dir > /dev/null 2>&1 || { echo "You are not in a git repository." && return }
-    local branch
-    branch=$(gh pr list --author @me | fzf --height 50% --reverse --header="Choose branch to checkout" | awk '{print $1}' | xargs)
-    gh pr checkout ${branch}
+    local id 
+    local action
+    # local branch
+    pr=$(gh pr list --limit 50 --json number,title,isDraft,author,createdAt --template \
+        '{{tablerow "ID" "TITLE" "DRAFT" "AUTHOR" "CREATED"}} {{range .}}{{tablerow (printf "#%v" .number) (.title) (.isDraft) (.author.name) (timeago .createdAt)}}{{end}}' \
+        | fzf --border=rounded --no-sort --height 50% --reverse --header-lines=1 --header="Choose PR")
+    id=$(echo $pr | awk '{print $1}' | xargs)
+    # branch=$(echo $pr | awk '{print $2}' | xargs | cut -d"." -f1)
+    action=$(echo "view \n diff \n checkout \n checks" | \
+        fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Action" | cut -d":" -f1 | xargs)
+    gh pr $action ${id}
 }
+
+# Apache Jira
+jira() {
+    jiras=$(curl "https://issues.apache.org/jira/rest/api/latest/search?jql=project%20=%20HDDS%20AND%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status") 2>/dev/null
+    jira=$(echo $jiras | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t' | \
+        fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
+    curl "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description" > /tmp/issue.details 2>/dev/null
+    echo "-------------------------------------------"
+    cat /tmp/issue.details | jq  -r '"ID^ \(.key)", "Summary^ \(.fields.summary)", "Labels^ \(.fields.labels[])"' | column -ts "^"
+    echo ""
+    cat /tmp/issue.details | jq  -r '"Description:", .fields.description'
+    echo "-------------------------------------------"
+  }
+
+
+# SSH Session Manager
+sshc() {
+    # uname=$(echo "root\nnvadivelu" | fzf --height 50% --reverse)
+    uname='root'
+    host=$(cat ~/.ssh/known_hosts| cut -d ' ' -f1 | sort | uniq | fzf --height 50% --reverse)
+    # ssh-copy-id ${uname}@${host} 2>/dev/null
+    ssh ${uname}@${host}
+}
+
+dev() {
+    project=$(echo "ozone\nratis\nfury" | fzf --height 50% --reverse)
+    case $project in
+    "ozone")
+      cd "/Users/nvadivelu/Codebase/Github/ozone"
+      zellij -l ozone
+      ;;
+    "ratis")
+      cd "/Users/nvadivelu/Codebase/Github/ratis"
+      zellij -l ratis
+      ;;
+    "fury")
+      cd "/Users/nvadivelu/Codebase/Github/fury"
+      zellij -l fury
+      ;;
+    *)
+      cd "/Users/nvadivelu/Codebase/Github/ozone"
+      zellij -l ozone
+      ;;
+    esac
+}
+

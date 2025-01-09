@@ -2,21 +2,36 @@
 autoload -U colors && colors
 PROMPT="%{$fg[blue]%} ❯ %{$reset_color%}"
 
-PATH=/Users/nvadivelu/.pyenv/versions/3.10.6/bin:/Applications/Maven/bin:/Applications/gh/bin:/opt/homebrew/bin:/Users/nvadivelu/Tools/scripts:$PATH
+# PATH
+PATH=/Users/nvadivelu/Tools/scripts:$PATH
+PATH=/Applications/gh/bin:$PATH
+PATH=/Applications/Maven/bin:$PATH
+PATH=/opt/homebrew/bin:$PATH
+PATH=/opt/homebrew/opt/ruby/bin:$PATH
+PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:$PATH
+PATH=/Users/nvadivelu/.pyenv/versions/3.10.6/bin:$PATH
+PATH=/Users/nvadivelu/Tools/scripts:$PATH
+
+
 fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )
 
 zstyle ':completion:*:*:git:*' script ~/.dotfiles/git-completion.bash
+autoload -U compinit
+compinit -i
 
-source ~/.dotfiles/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-#autoload -U compinit
-#compinit -i
+source ~/.dotfiles/fzf-tab/fzf-tab.plugin.zsh
+source ~/.dotfiles/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+. /opt/homebrew/etc/profile.d/z.sh
+
+setopt autocd
 
 # Hook to load env fine from .dev-tools directory
 autoload -U add-zsh-hook
 load-local-conf() {
      # check file exists, is regular file and is readable:
-     if [[ -f .git/env && -r .git/env ]]; then
-       source .git/env
+     if [[ -f .dev-tools/env && -r .dev-tools/env ]]; then
+       source .dev-tools/env
      fi
 }
 add-zsh-hook chpwd load-local-conf
@@ -30,6 +45,13 @@ export LIMA_SHELL='zsh'
 
 # starship prompt
 eval "$(starship init zsh)"
+
+bindkey -v
+
+zle -N fzf-command-widget
+bindkey  fzf-command-widget
+
+source <(kubectl completion zsh)
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"

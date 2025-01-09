@@ -20,3 +20,5 @@ set mouse=v
 " Show the filename in the window titlebar
 set title
 
+" Set auto indent
+set ai

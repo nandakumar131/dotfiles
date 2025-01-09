@@ -1,11 +1,32 @@
 
+# Prompt
+
+format = """
+[╭─](white)$username$hostname in $directory$package$java$python$git_branch$battery$cmd_duration
+[╰──](white)$character
+"""
+add_newline = false
+command_timeout = 500
+
+[character]
+format = "$symbol"
+success_symbol = "[❯ ](bold green)"
+error_symbol = "[✗ ](bold red) "
+vicmd_symbol = "[❮ ](bold green)"
+
+# Java settings
+[java]
+symbol = "☕ "
+style = "red dimmed"
+format = "via [${symbol}${version}]($style) "
+
 [hostname]
 disabled = true
 
 [username]
 disabled = true
 
-[java]
+[conda]
 disabled = true
 
 [package]
@@ -15,5 +36,5 @@ disabled = true
 disabled = true
 
 [cmd_duration]
-disabled = true
+disabled = false
 

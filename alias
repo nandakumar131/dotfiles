@@ -1,12 +1,17 @@
 
 alias reload!='. ~/.zshrc'
 
+alias ll='lsd -lh'
+alias tree='lsd --tree'
+alias f='find . -name'
+
+alias vi='nvim'
+alias g='git'
+
+alias cgrep='grep --color'
+
 # Print each PATH entry on a separate line
 alias path='echo -e ${PATH//:/\\n}'
 
-alias goto='cd ${HOME}/$(cat ${HOME}/.dotfiles/gotolocations | fzf --height 50% --reverse)'
+alias goto='gotofn() {cd ${HOME}/$(cat ${HOME}/.dotfiles/gotolocations | fzf --height 50% --reverse -i --select-1 --query=$1)};gotofn'
 
-# Git
-alias gs='git status -s'
-alias gb='git branch -v'
-alias gl='git log --oneline'
