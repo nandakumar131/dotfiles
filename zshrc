@@ -46,7 +46,7 @@ export LIMA_SHELL='zsh'
 # starship prompt
 eval "$(starship init zsh)"
 
-bindkey -v
+bindkey -e
 
 zle -N fzf-command-widget
 bindkey  fzf-command-widget

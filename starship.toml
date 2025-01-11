@@ -16,8 +16,8 @@ vicmd_symbol = "[❮ ](bold green)"
 
 # Java settings
 [java]
-symbol = "☕ "
-style = "red dimmed"
+symbol = " "
+style = "red"
 format = "via [${symbol}${version}]($style) "
 
 [hostname]
