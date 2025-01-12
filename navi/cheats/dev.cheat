@@ -1,0 +1,7 @@
+
+% dev-environment
+
+# Ozone Dev 
+zellij -l <project>
+
+$ project: echo -e "ozone\nratis\nfury"

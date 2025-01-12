@@ -1,16 +1,6 @@
 
 
-# Git Checkout
-gc() {
-    git rev-parse --git-dir > /dev/null 2>&1 || { echo "You are not in a git repository." && return }
-    local branch
-    branch=$(git branch | fzf --height 50% --reverse --header="Choose branch to checkout" | xargs)
-    if [[ ${branch} == '*'* ]]; then
-	branch=$(echo $branch | cut -d " " -f2)
-    fi
-    git checkout ${branch}
-}
-
+# Git Update Upstream 
 gupdate() {
     echo "Fetching Upstream"
     git fetch upstream
@@ -18,14 +8,6 @@ gupdate() {
     git merge upstream/master
     echo "Pushing origin master"
     git push origin master
-  }
-
-fzf-command-widget() {
-    echo
-    command=$(cat ${HOME}/.dotfiles/frequent-commands | fzf --height 50% --reverse)
-    echo ${command}
-    eval ${command}
-    zle .reset-prompt
   }
 
 # Github PR
@@ -57,35 +39,4 @@ jira() {
     echo "-------------------------------------------"
   }
 
-
-# SSH Session Manager
-sshc() {
-    # uname=$(echo "root\nnvadivelu" | fzf --height 50% --reverse)
-    uname='root'
-    host=$(cat ~/.ssh/known_hosts| cut -d ' ' -f1 | sort | uniq | fzf --height 50% --reverse)
-    # ssh-copy-id ${uname}@${host} 2>/dev/null
-    ssh ${uname}@${host}
-}
-
-dev() {
-    project=$(echo "ozone\nratis\nfury" | fzf --height 50% --reverse)
-    case $project in
-    "ozone")
-      cd "/Users/nvadivelu/Codebase/Github/ozone"
-      zellij -l ozone
-      ;;
-    "ratis")
-      cd "/Users/nvadivelu/Codebase/Github/ratis"
-      zellij -l ratis
-      ;;
-    "fury")
-      cd "/Users/nvadivelu/Codebase/Github/fury"
-      zellij -l fury
-      ;;
-    *)
-      cd "/Users/nvadivelu/Codebase/Github/ozone"
-      zellij -l ozone
-      ;;
-    esac
-}
 

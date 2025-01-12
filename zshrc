@@ -42,15 +42,14 @@ add-zsh-hook chpwd load-local-conf
 
 export GOPATH='/Users/nvadivelu/Codebase/go'
 export LIMA_SHELL='zsh'
+export FZF_DEFAULT_OPTS="--height 70% --reverse --inline-info --cycle"
+export NAVI_PATH="/Users/nvadivelu/.dotfiles/navi/cheats"
 
 # starship prompt
 eval "$(starship init zsh)"
+eval "$(navi widget zsh)"
 
 bindkey -e
-
-zle -N fzf-command-widget
-bindkey  fzf-command-widget
-
 source <(kubectl completion zsh)
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!

@@ -1,0 +1,27 @@
+% git
+
+
+# Merge upstream master into local/origin master
+git fetch upstream
+git checkout master
+git merge upstream/master
+
+# Git checkout branch
+git checkout <branch>
+
+# View all available remote for a git repository
+git remote --verbose
+
+# Create commit for staged files
+git commit -S -m "<commit_description>"
+
+# Displays formatted log of commits for a repo
+git log --all --decorate --oneline --graph
+
+# See all open pull requests of a user on Github
+navi fn url::open 'https://github.com/pulls?&q=author:nandakumar131+is:open+is:pr'
+
+$ branch: git branch | awk '{print $NF}'
+$ toplevel_directory: git rev-parse --show-toplevel
+$ unstaged_files: git status --untracked-files=no -s --porcelain | awk '{print $NF}' --- --multi true
+$ changed_files: git status --untracked-files=all -s --porcelain | awk '{print $NF}' --- --multi true
