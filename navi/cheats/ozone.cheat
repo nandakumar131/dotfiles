@@ -1,0 +1,15 @@
+% ozone
+
+
+# Package 
+mvn -T 1C clean package -DskipTests
+
+# Compile
+mvn -T 1C clean compile -DskipTests
+
+# Quick Compile
+mvn -T 1C -DskipTests -DskipShade -Dskip.installnpm -Dskip.installnpx -Dskip.installyarn -Dskip.npm -Dskip.npx -Dskip.yarn clean compile 
+
+# Checkstyle
+hadoop-ozone/dev-support/checks/checkstyle.sh
+

@@ -97,6 +97,7 @@ source $ITEM_DIR/cpu.sh
 source $ITEM_DIR/ram.sh
 source $ITEM_DIR/disk.sh
 source $ITEM_DIR/taskwarrior.sh
+source $ITEM_DIR/meeting.sh
 source $ITEM_DIR/media.sh
 
 ##### Force all scripts to run the first time (never do this in a script) #####

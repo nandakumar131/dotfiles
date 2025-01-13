@@ -4,8 +4,8 @@ taskwarrior=(
   script="$PLUGIN_DIR/taskwarrior.sh"
   update_freq=120
   icon=󱃔
-  icon.color=$ORANGE
-  label.color=$ORANGE
+  icon.color=$WHITE
+  label.color=$WHITE
 )
 task_template=(
   drawing=off

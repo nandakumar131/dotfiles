@@ -36,5 +36,5 @@ disabled = true
 disabled = true
 
 [cmd_duration]
-disabled = false
+disabled = true
 

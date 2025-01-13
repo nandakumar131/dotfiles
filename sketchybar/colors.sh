@@ -18,16 +18,9 @@ export BG0=0x801e1e2e
 export BG1=0x801e1e2e
 export BG2=0x80494d64
 
-# General bar colors
-export ICON_COLOR=$WHITE  # Color of all icons
-export LABEL_COLOR=$WHITE # Color of all labels
-export POPUP_BACKGROUND_COLOR=$BAR_COLOR
-export POPUP_BORDER_COLOR=$WHITE
-export SHADOW_COLOR=$BLACK
-
 # -- Custom Scheme --
 export BAR_COLOR=0x40000000
-export ITEM_BG_COLOR=0xff353c3f
+export ITEM_BG_COLOR=0xff5d5d5c
 export ACCENT_COLOR=0xffffffff
 export ICON_COLOR=$WHITE  # Color of all icons
 export LABEL_COLOR=$WHITE # Color of all labels

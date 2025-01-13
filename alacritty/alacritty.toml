@@ -29,6 +29,10 @@ foreground = "#c9c7cd"
 [env]
 TERM = "xterm-256color"
 
+[cursor]
+style = "Underline"
+vi_mode_style = "Block"
+
 [font]
 size = 14
 
@@ -55,3 +59,10 @@ startup_mode = "Windowed"
 [window.padding]
 x = 12
 y = 12
+
+[[hints.enabled]]
+regex = "[0-9a-f]{40}"
+mouse.enabled = true
+post_processing = false
+action = "Copy"
+binding = { key = "H", mods = "Control|Shift"}
