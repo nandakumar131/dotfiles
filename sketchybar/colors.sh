@@ -24,7 +24,7 @@ export ITEM_BG_COLOR=0xff5d5d5c
 export ACCENT_COLOR=0xffffffff
 export ICON_COLOR=$WHITE  # Color of all icons
 export LABEL_COLOR=$WHITE # Color of all labels
-export POPUP_BACKGROUND_COLOR=$BAR_COLOR
+export POPUP_BACKGROUND_COLOR=$BLACK
 export POPUP_BORDER_COLOR=$WHITE
 export SHADOW_COLOR=$BLACK
 

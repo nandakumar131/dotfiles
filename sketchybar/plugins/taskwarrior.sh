@@ -22,7 +22,7 @@ list_tasks() {
 
     # Format the due date for display as "Day.Month", or leave it empty if not present
     if [[ $due != "no_due_date" ]]; then
-      due_date=$(date -jf "%Y%m%dT%H%M%SZ" "$due" "+%d %b" 2>/dev/null)
+      due_date=$(date -jf "%Y%m%dT%H%M%SZ" "$due" "+%d %b" | awk 'END{print $0 " - "}' 2>/dev/null) 
     fi
     # Set the color to red if the task is overdue
     if [[ "$due" > "$current_date" ]]; then
@@ -34,8 +34,9 @@ list_tasks() {
     args+=(
       "--clone" "task.pending.$task_count" "task.template"
       "--set" "task.pending.$task_count"
-      "icon=$description"
-      "label=$due_date"
+      "icon=$due_date"
+      "icon.color=$label_color"
+      "label=$description"
       "label.color=$label_color"
       "position=popup.taskwarrior"
       "drawing=on"
@@ -49,6 +50,8 @@ list_tasks() {
 # Function to toggle task popup in sketchybar
 popup() {
   sketchybar --set "$NAME" popup.drawing="$1"
+  sketchybar --set "$NAME" popup.background.color=$POPUP_BACKGROUND_COLOR
+  sketchybar --set "$NAME" popup.background.corner_radius=10
 }
 
 # Function to update sketchybar based on task counts
