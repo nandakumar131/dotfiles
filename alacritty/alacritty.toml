@@ -30,8 +30,20 @@ foreground = "#c9c7cd"
 TERM = "xterm-256color"
 
 [cursor]
-style = "Underline"
+blink_interval = 500
+unfocused_hollow= true
+thickness = 0.25 
 vi_mode_style = "Block"
+
+[cursor.style]
+shape = "Underline"
+blinking = "On"
+
+[mouse]
+hide_when_typing = true
+
+[selection]
+save_to_clipboard = true
 
 [font]
 size = 14
