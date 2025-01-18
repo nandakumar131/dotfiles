@@ -14,9 +14,6 @@ set ignorecase
 " Highlight dynamically as pattern is typed
 set incsearch
 
-" Enable mouse in all modes
-set mouse=v
-
 " Show the filename in the window titlebar
 set title
 

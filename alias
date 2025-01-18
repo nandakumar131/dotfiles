@@ -2,10 +2,11 @@
 alias reload!='. ~/.zshrc'
 
 alias ll='lsd -lh'
+alias la='ls -a'
 alias tree='lsd --tree'
 alias f='find . -name'
 
-alias vi='nvim'
+#alias vi='nvim'
 alias g='git'
 
 alias cgrep='grep --color'

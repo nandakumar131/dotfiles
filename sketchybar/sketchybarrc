@@ -94,7 +94,7 @@ source $ITEM_DIR/front_app.sh
 #           --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh" \
 #           --subscribe battery system_woke power_source_change
 
-source $ITEM_DIR/weather.sh
+#source $ITEM_DIR/weather.sh
 source $ITEM_DIR/battery.sh
 source $ITEM_DIR/cpu.sh
 source $ITEM_DIR/ram.sh

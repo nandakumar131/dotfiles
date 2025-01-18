@@ -16,6 +16,7 @@ vicmd_symbol = "[❮ ](bold green)"
 
 # Java settings
 [java]
+disabled = true
 symbol = " "
 style = "red"
 format = "via [${symbol}${version}]($style) "

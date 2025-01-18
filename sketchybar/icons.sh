@@ -14,7 +14,11 @@ BELL=􀋚
 BELL_DOT=􀝗
 PACKAGES=􀐛
 TICK=✔︎
-MEMORY=􀧖
+CPU=
+#MEMORY=􀧖
+MEMORY= 
+DISK=󰋊
+CALENDAR=󰸘
 
 # Primary Spaces
 SPACES_CODE=􀤙

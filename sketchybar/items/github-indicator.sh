@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sketchybar --add       item           github.commits right                                  \
-           --set       github.commits update_freq=1000                                      \
+           --set       github.commits update_freq=300                                      \
                                       icon.highlight_color=$WHITE                           \
                                       icon=$GIT_INDICATOR                                   \
                                       label=$LOADING                                        \

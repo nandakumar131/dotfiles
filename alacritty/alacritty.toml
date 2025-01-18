@@ -85,3 +85,10 @@ mouse.enabled = true
 post_processing = true 
 command={ program = "/Users/nvadivelu/Tools/scripts/open-github-pr.sh" }
 binding = { key = "J", mods = "Shift|Option"}
+
+[[hints.enabled]]
+regex = "[Ee][Nn][Gg][Ee][Ss][Cc]-[0-9]+"
+mouse.enabled = true
+post_processing = true 
+command={ program = "/Users/nvadivelu/Tools/scripts/open-engesc.sh" }
+binding = { key = "E", mods = "Shift|Option"}

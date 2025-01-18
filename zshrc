@@ -45,6 +45,9 @@ export LIMA_SHELL='zsh'
 export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
 export NAVI_PATH='/Users/nvadivelu/.dotfiles/navi/cheats'
 export WALK_EDITOR='vi'
+export LESSOPEN="| /opt/homebrew/Cellar/source-highlight/3.1.9_6/bin/src-hilite-lesspipe.sh %s"
+export LESS=' -R '
+
 
 # starship prompt
 eval "$(starship init zsh)"
