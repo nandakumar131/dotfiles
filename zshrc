@@ -40,6 +40,7 @@ add-zsh-hook chpwd load-local-conf
 [ -f ~/.dotfiles/alias ] && source ~/.dotfiles/alias
 [ -f ~/.dotfiles/functions ] && source ~/.dotfiles/functions
 
+export EDITOR='vi'
 export GOPATH='/Users/nvadivelu/Codebase/go'
 export LIMA_SHELL='zsh'
 export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
@@ -54,6 +55,7 @@ eval "$(starship init zsh)"
 eval "$(navi widget zsh)"
 
 bindkey -e
+bindkey '^ ' forward-word
 #bindkey "^i" vi-cmd-mode
 source <(kubectl completion zsh)
 

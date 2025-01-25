@@ -15,15 +15,19 @@ ghpr() {
     git rev-parse --git-dir > /dev/null 2>&1 || { echo "You are not in a git repository." && return }
     local id 
     local action
-    # local branch
     pr=$(gh pr list --limit 50 --json number,title,isDraft,author,createdAt --template \
         '{{tablerow "ID" "TITLE" "DRAFT" "AUTHOR" "CREATED"}} {{range .}}{{tablerow (printf "#%v" .number) (.title) (.isDraft) (.author.name) (timeago .createdAt)}}{{end}}' \
         | fzf --border=rounded --no-sort --height 50% --reverse --header-lines=1 --header="Choose PR")
     id=$(echo $pr | awk '{print $1}' | xargs)
-    # branch=$(echo $pr | awk '{print $2}' | xargs | cut -d"." -f1)
-    action=$(echo "view \n diff \n checkout \n checks" | \
+    action=$(echo "view \n diff \n checkout \n review \n checks \n open" | \
         fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Action" | cut -d":" -f1 | xargs)
-    gh pr $action ${id}
+    echo $id
+    if [[ "$action" == "open" ]]
+    then
+        /Users/nvadivelu/Tools/scripts/open-github-pr.sh ${id}
+    else
+        gh pr $action ${id}
+    fi
 }
 
 # Apache Jira

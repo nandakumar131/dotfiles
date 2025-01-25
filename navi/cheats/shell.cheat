@@ -7,6 +7,7 @@ vi ~/.dotfiles/zshrc
 % ssh-manager
 
 # Access via ssh
-ssh root@<remote>
+ssh <user>@<remote>
 
+$ user: echo -e "nvadivelu\nroot"
 $ remote: cat ~/.ssh/known_hosts| cut -d ' ' -f1 | sort | uniq 
