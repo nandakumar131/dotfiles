@@ -11,6 +11,7 @@ PATH=/opt/homebrew/opt/ruby/bin:$PATH
 PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:$PATH
 PATH=/Users/nvadivelu/.pyenv/versions/3.10.6/bin:$PATH
 PATH=/Users/nvadivelu/Tools/scripts:$PATH
+PATH=/Users/nvadivelu/.jdtls/bin:$PATH
 
 
 fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )

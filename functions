@@ -10,6 +10,21 @@ gupdate() {
     git push origin master
   }
 
+gbr() {
+    for line in $(git branch); do
+      description=$(git config branch.$line.description)
+      if [ -n "$description" ]; then
+        echo "$line     $description"
+      fi
+    done
+}
+
+gcb() {
+    branch=$(gbr | fzf --border=rounded --no-sort --height 50% --reverse --header="Select branch to checkout" | cut -d " " -f1)
+    git checkout $branch
+}
+
+
 # Github PR
 ghpr() {
     git rev-parse --git-dir > /dev/null 2>&1 || { echo "You are not in a git repository." && return }
@@ -20,7 +35,7 @@ ghpr() {
         | fzf --border=rounded --no-sort --height 50% --reverse --header-lines=1 --header="Choose PR")
     id=$(echo $pr | awk '{print $1}' | xargs)
     action=$(echo "view \n diff \n checkout \n review \n checks \n open" | \
-        fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Action" | cut -d":" -f1 | xargs)
+        fzf --border=rounded --no-sort --height 20% --reverse --header="Choose Action" | cut -d":" -f1 | xargs)
     echo $id
     if [[ "$action" == "open" ]]
     then
