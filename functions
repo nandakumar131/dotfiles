@@ -1,15 +1,5 @@
 
 
-# Git Update Upstream 
-gupdate() {
-    echo "Fetching Upstream"
-    git fetch upstream
-    echo "Merging Upstream master"
-    git merge upstream/master
-    echo "Pushing origin master"
-    git push origin master
-  }
-
 gbr() {
     for line in $(git branch); do
       description=$(git config branch.$line.description)
