@@ -2,18 +2,6 @@
 autoload -U colors && colors
 PROMPT="%{$fg[blue]%} ❯ %{$reset_color%}"
 
-# PATH
-PATH=/Users/nvadivelu/Tools/scripts:$PATH
-PATH=/Applications/gh/bin:$PATH
-PATH=/Applications/Maven/bin:$PATH
-PATH=/opt/homebrew/bin:$PATH
-PATH=/opt/homebrew/opt/ruby/bin:$PATH
-PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:$PATH
-PATH=/Users/nvadivelu/.pyenv/versions/3.10.6/bin:$PATH
-PATH=/Users/nvadivelu/Tools/scripts:$PATH
-PATH=/Users/nvadivelu/.jdtls/bin:$PATH
-
-
 fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )
 
 zstyle ':completion:*:*:git:*' script ~/.dotfiles/git-completion.bash
