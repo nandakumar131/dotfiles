@@ -1,0 +1,27 @@
+[user]
+	name = Nandakumar Vadivelu
+	email = nanda@apache.org
+	signingkey = 4C9B6B5E9FB2E95F2399455D7D8B60BA77427516
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[init]
+	defaultBranch = master
+[core]
+	pager = diff-so-fancy | less --tabs=4 -RF
+[interactive]
+	diffFilter = diff-so-fancy --patch
+[alias]
+  s = status -s
+  lg = log --pretty=format:\"%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(dim green)(%cr) [%an]\" --abbrev-commit -30
+  br = branch --format='%(HEAD) %(color:yellow)%(refname:short)%(color:reset) - %(contents:subject) %(color:green)(%(committerdate:relative)) [%(authorname)]' --sort=-committerdate
+  fu = fetch upstream
+  mum = merge upstream/master
+  pom = push origin master
+  cob = checkout -b
+  cm = checkout master
+  del = branch -D
+  a = !git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
+

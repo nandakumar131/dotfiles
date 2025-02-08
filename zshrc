@@ -4,7 +4,7 @@ PROMPT="%{$fg[blue]%} ❯ %{$reset_color%}"
 
 fpath=( ~/.dotfiles/autocomplete "${fpath[@]}" )
 
-zstyle ':completion:*:*:git:*' script ~/.dotfiles/git-completion.bash
+zstyle ':completion:*:*:git:*' script ~/.dotfiles/git/git-completion.bash
 autoload -U compinit
 compinit -i
 
@@ -33,7 +33,7 @@ export EDITOR='vi'
 export GOPATH='/Users/nvadivelu/Codebase/go'
 export LIMA_SHELL='zsh'
 export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
-export NAVI_PATH='/Users/nvadivelu/.dotfiles/navi/cheats'
+export NAVI_PATH='/Users/nvadivelu/.dotfiles/config/navi/cheats'
 export WALK_EDITOR='vi'
 export LESSOPEN="| /opt/homebrew/Cellar/source-highlight/3.1.9_6/bin/src-hilite-lesspipe.sh %s"
 export LESS=' -R '

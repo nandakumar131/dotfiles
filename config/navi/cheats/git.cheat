@@ -19,9 +19,6 @@ git commit -S -m "<commit_description>"
 # Displays formatted log of commits for a repo
 git log --all --decorate --oneline --graph
 
-# See all open pull requests of a user on Github
-navi fn url::open 'https://github.com/pulls?&q=author:nandakumar131+is:open+is:pr'
-
 # See the diff between master and current branch
 git diff master $(git rev-parse --abbrev-ref HEAD)
 

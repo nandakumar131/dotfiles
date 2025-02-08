@@ -1,0 +1,12 @@
+% maven
+
+# Compile
+mvn -T 1C clean compile -DskipTests
+
+# Package & Install
+mvn jar:jar install:install
+
+# Run Test
+mvn surefire:test -Dtest=<test_class>
+
+$ test_class: fd Test | xargs basename | cut -d . -f1
