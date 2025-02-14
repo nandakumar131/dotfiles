@@ -1,7 +1,7 @@
 {
   "extras": [
     "lazyvim.plugins.extras.lang.java",
-    "lazyvim.plugins.extras.test.core",
+    "lazyvim.plugins.extras.lang.markdown",
     "lazyvim.plugins.extras.util.project"
   ],
   "install_version": 7,

@@ -101,7 +101,7 @@ source $ITEM_DIR/ram.sh
 source $ITEM_DIR/disk.sh
 source $ITEM_DIR/mail-indicator.sh
 source $ITEM_DIR/github-indicator.sh
-source $ITEM_DIR/taskwarrior.sh
+#source $ITEM_DIR/taskwarrior.sh
 source $ITEM_DIR/meeting.sh
 source $ITEM_DIR/media.sh
 

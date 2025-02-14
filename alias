@@ -16,3 +16,6 @@ alias path='echo -e ${PATH//:/\\n}'
 alias c=pbcopy
 
 alias gbc='git rev-parse --abbrev-ref HEAD | c'
+
+alias sc='glow ~/Workspace/schedule.md'
+alias esc='nvim ~/Workspace/schedule.md'
