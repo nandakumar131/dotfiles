@@ -22,6 +22,12 @@ git log --all --decorate --oneline --graph
 # See the diff between master and current branch
 git diff master $(git rev-parse --abbrev-ref HEAD)
 
+# Apply diff from Ozone to Ozone Work
+cd /Users/nvadivelu/Codebase/Github/ozone
+git diff --cached master > /Users/nvadivelu/Workspace/Patches/wip.patch
+cd /Users/nvadivelu/Codebase/Github/ozone-workspace
+git apply /Users/nvadivelu/Workspace/Patches/wip.patch
+
 $ branch: git branch | awk '{print $NF}'
 $ toplevel_directory: git rev-parse --show-toplevel
 $ unstaged_files: git status --untracked-files=no -s --porcelain | awk '{print $NF}' --- --multi true
