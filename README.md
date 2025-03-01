@@ -11,6 +11,7 @@ LazyVim:		https://github.com/LazyVim/LazyVim
 Navi:			https://github.com/denisidoro/navi
 Maven:			https://github.com/apache/maven
 Sdkman:			https://github.com/sdkman/sdkman-cli
+Rectangle:		https://github.com/rxhanson/Rectangle
 bat:			https://github.com/sharkdp/bat
 fzf:			https://github.com/junegunn/fzf
 ripgrep:		https://github.com/raycast/ripgrep
