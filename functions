@@ -40,11 +40,18 @@ jira() {
     jiras=$(curl "https://issues.apache.org/jira/rest/api/latest/search?jql=project%20=%20HDDS%20AND%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status") 2>/dev/null
     jira=$(echo $jiras | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t' | \
         fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
-    curl "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description" > /tmp/issue.details 2>/dev/null
+    curl "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description,subtasks" > /tmp/issue.details 2>/dev/null
     echo "-------------------------------------------"
-    cat /tmp/issue.details | jq  -r '"ID^ \(.key)", "Summary^ \(.fields.summary)", "Labels^ \(.fields.labels[])"' | column -ts "^"
+    cat /tmp/issue.details | jq  -r '"\u001b[32mID^\u001b[37m \(.key)", "\u001b[32mSummary^\u001b[37m \(.fields.summary)", "Labels^ \(.fields.labels[])"' | column -ts "^"
     echo ""
-    cat /tmp/issue.details | jq  -r '"Description:", .fields.description'
+    cat /tmp/issue.details | jq  -r '"\u001b[32mDescription\u001b[37m", .fields.description'
+    cat /tmp/issue.details | grep "\"subtasks\"\:\[\]" > /dev/null 2>&1
+    if [[ $? != 0 ]]
+    then
+        echo
+        echo "\u001b[32mSubtasks\u001b[37m"
+        cat /tmp/issue.details | jq -r '.fields.subtasks[] |  [.key, .fields.summary] | @tsv'
+    fi
     echo "-------------------------------------------"
   }
 
