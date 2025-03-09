@@ -46,13 +46,15 @@ jira() {
     echo ""
     cat /tmp/issue.details | jq  -r '"\u001b[32mDescription\u001b[37m", .fields.description'
     cat /tmp/issue.details | grep "\"subtasks\"\:\[\]" > /dev/null 2>&1
-    if [[ $? != 0 ]]
+    if [[ $? != 0 && -s /tmp/issue.details ]]
     then
+        cat /tmp/issue.details
         echo
         echo "\u001b[32mSubtasks\u001b[37m"
         cat /tmp/issue.details | jq -r '.fields.subtasks[] |  [.key, .fields.summary] | @tsv'
     fi
     echo "-------------------------------------------"
+    rm -rf /tmp/issue.details 
   }
 
 # Walk File Manager
