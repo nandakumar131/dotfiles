@@ -5,11 +5,9 @@ mvn -T 1C -DskipTests -DskipShade -Dskip.installnpm -Dskip.installnpx -Dskip.ins
 
 # Verify Commit
 mvn -DskipTests -DskipRecon -DskipShade clean verify 
-hadoop-ozone/dev-support/checks/checkstyle.sh 
-hadoop-ozone/dev-support/checks/pmd.sh
 
 # Checkstyle
 hadoop-ozone/dev-support/checks/checkstyle.sh
 
-# Findbugs
-hadoop-ozone/dev-support/checks/findbugs.sh
+# PMD
+hadoop-ozone/dev-support/checks/pmd.sh

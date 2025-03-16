@@ -26,6 +26,9 @@ git diff master $(git rev-parse --abbrev-ref HEAD)
 cd /Users/nvadivelu/Codebase/Github/ozone
 git diff --cached master > /Users/nvadivelu/Workspace/Patches/wip.patch
 cd /Users/nvadivelu/Codebase/Github/ozone-workspace
+git stash
+git clean -df
+git pull --rebase
 git apply /Users/nvadivelu/Workspace/Patches/wip.patch
 
 $ branch: git branch | awk '{print $NF}'

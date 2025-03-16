@@ -5,8 +5,9 @@ alias ll='lsd -lh'
 alias la='ls -a'
 alias tree='lsd --tree'
 
-#alias vi='nvim'
 alias g='git'
+alias gc='git reset .; git checkout .; git clean -df;'
+alias gbc='git rev-parse --abbrev-ref HEAD | c'
 
 alias cgrep='grep --color'
 
@@ -14,8 +15,6 @@ alias cgrep='grep --color'
 alias path='echo -e ${PATH//:/\\n}'
 
 alias c=pbcopy
-
-alias gbc='git rev-parse --abbrev-ref HEAD | c'
 
 alias sc='glow ~/Workspace/schedule.md'
 alias esc='nvim ~/Workspace/schedule.md'
