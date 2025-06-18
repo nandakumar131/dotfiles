@@ -1,0 +1,109 @@
+#!/bin/bash
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+ITEM_DIR="$CONFIG_DIR/items"
+POPUP_CLICK_SCRIPT="sketchybar-top -m --set \"\$NAME\" popup.drawing=toggle" # The script that toggles the popup windows
+
+source "$CONFIG_DIR/colors.sh" # Loads all defined colors
+source "$CONFIG_DIR/icons.sh" # Loads all defined icons 
+
+##### Bar Appearance #####
+# Configuring the general appearance of the bar.
+# These are only some of the options available. For all options see:
+# https://felixkratz.github.io/SketchyBar/config/bar
+# If you are looking for other colors, see the color picker:
+# https://felixkratz.github.io/SketchyBar/config/tricks#color-picker
+
+sketchybar-top --bar   \
+  position=top     \
+  height=35        \
+  topmost=window   \
+  blur_radius=20   \
+  color=$BAR_COLOR \
+  padding_left=15  \
+  padding_right=25
+
+
+##### Changing Defaults #####
+# We now change some default values, which are applied to all further items.
+# For a full list of all available item properties see:
+# https://felixkratz.github.io/SketchyBar/config/items
+
+default=(
+  padding_left=4
+  padding_right=4
+  background.corner_radius=6
+  icon.font="Hack Nerd Font:Bold:17.0"
+  label.font="Hack Nerd Font:Bold:14.0"
+  icon.color=0xffffffff
+  label.color=0xffffffff
+  icon.padding_left=4
+  icon.padding_right=4
+  label.padding_left=4
+  label.padding_right=4
+)
+sketchybar-top --default "${default[@]}"
+
+##### Adding Mission Control Space Indicators #####
+# Let's add some mission control spaces:
+# https://felixkratz.github.io/SketchyBar/config/components#space----associate-mission-control-spaces-with-an-item
+# to indicate active and available mission control spaces.
+
+# SPACE_ICONS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
+# for i in "${!SPACE_ICONS[@]}"
+# do
+#   sid="$(($i+1))"
+#   space=(
+#     space="$sid"
+#     icon="${SPACE_ICONS[i]}"
+#     icon.padding_left=7
+#     icon.padding_right=7
+#     background.color=0x40ffffff
+#     background.corner_radius=5
+#     background.height=25
+#     label.drawing=off
+#     script="$PLUGIN_DIR/space.sh"
+#     click_script="yabai -m space --focus $sid"
+#   )
+#  sketchybar --add space space."$sid" left --set space."$sid" "${space[@]}"
+# done
+
+##### Adding Left Items #####
+# We add some regular items to the left side of the bar, where
+# only the properties deviating from the current defaults need to be set
+
+#sketchybar-top --add item chevron left                 \
+#           --set chevron icon= label.drawing=off
+
+source $ITEM_DIR/front_app.sh
+
+##### Adding Right Items #####
+# In the same way as the left items we can add items to the right side.
+# Additional position (e.g. center) are available, see:
+# https://felixkratz.github.io/SketchyBar/config/items#adding-items-to-sketchybar
+
+# Some items refresh on a fixed cycle, e.g. the clock runs its script once
+# every 10s. Other items respond to events they subscribe to, e.g. the
+# volume.sh script is only executed once an actual change in system audio
+# volume is registered. More info about the event system can be found here:
+# https://felixkratz.github.io/SketchyBar/config/events
+
+sketchybar-top  --add item label_template left  \
+                --set label_template icon.drawing=off    
+
+source $ITEM_DIR/clock.sh
+#source $ITEM_DIR/battery.sh
+#source $ITEM_DIR/volume.sh
+#source $ITEM_DIR/weather.sh
+#source $ITEM_DIR/spotify.sh
+#source $ITEM_DIR/cpu.sh
+#source $ITEM_DIR/ram.sh
+#source $ITEM_DIR/disk.sh
+#source $ITEM_DIR/mail-indicator.sh
+#source $ITEM_DIR/github-indicator.sh
+#source $ITEM_DIR/taskwarrior.sh
+#source $ITEM_DIR/meeting.sh
+source $ITEM_DIR/media.sh
+
+##### Force all scripts to run the first time (never do this in a script) #####
+sketchybar-top --update

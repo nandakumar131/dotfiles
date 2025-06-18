@@ -1,16 +1,21 @@
 
 
 gbr() {
-    for line in $(git branch); do
-      description=$(git config branch.$line.description)
-      if [ -n "$description" ]; then
-        echo "$line     $description"
+    for line in $(git branch --format "%(refname:short)"); do
+      if [[ $line == HDDS-* ]]
+      then
+        curl -s "https://issues.apache.org/jira/rest/api/latest/issue/$line?&fields=status,summary" > /tmp/issue.details
+	jira_status=$(cat /tmp/issue.details | jq -r .fields.status.name)
+	description=$(cat /tmp/issue.details | jq -r .fields.summary)
+        echo "$line	$jira_status     $description"
+      else 
+        echo "$line"
       fi
     done
 }
 
-gcb() {
-    branch=$(gbr | fzf --border=rounded --no-sort --height 50% --reverse --header="Select branch to checkout" | cut -d " " -f1)
+cb() {
+    branch=$(gbr | fzf --border=rounded --no-sort --height 50% --reverse --header="Select branch to checkout" | cut -d '	' -f1 | xargs)
     git checkout $branch
 }
 
@@ -37,10 +42,17 @@ ghpr() {
 
 # Apache Jira
 jira() {
-    jiras=$(curl "https://issues.apache.org/jira/rest/api/latest/search?jql=project%20=%20HDDS%20AND%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status") 2>/dev/null
-    jira=$(echo $jiras | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t' | \
-        fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
-    curl "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description,subtasks" > /tmp/issue.details 2>/dev/null
+    declare jira
+    if [ -n "$1" ]
+    then
+        jira=$1 
+    else
+        jiras=$(curl -s "https://issues.apache.org/jira/rest/api/latest/search?jql=project%20=%20HDDS%20AND%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status")
+        jira=$(echo $jiras | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t' | \
+            fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
+
+    fi
+    curl -s "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description,subtasks" > /tmp/issue.details
     echo "-------------------------------------------"
     cat /tmp/issue.details | jq  -r '"\u001b[32mID^\u001b[37m \(.key)", "\u001b[32mSummary^\u001b[37m \(.fields.summary)", "Labels^ \(.fields.labels[])"' | column -ts "^"
     echo ""

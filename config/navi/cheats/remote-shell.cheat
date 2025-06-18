@@ -1,0 +1,30 @@
+
+% shortcuts 
+
+# source zshrc 
+source ~/.nanda/zsh.rc
+
+% ratis-performance
+
+# Set Peers
+PEERS="v1b1003.halxg.cloudera.com:9898,v1b1004.halxg.cloudera.com:9898,v1b1005.halxg.cloudera.com:9898"
+
+# Set ID
+ID=<peer>
+# Set Port
+PORT="9898"
+
+# Run Server with log
+java -Xms50G -Xmx50G -javaagent:"resources/jmx_prometheus_javaagent-1.3.0.jar"=9080:resources/exporter.yaml -Dlog4j.configuration=file:./apache-ratis-3.2.0-SNAPSHOT-bin/examples/conf/log4j.properties -classpath target/dependency/*:target/* org.apache.ratis.perf.SimpleMain server ${ID} ${PORT} ${PEERS} /mnt/disk0/Ratis-Perf-Test
+
+# Run Server 
+java -Xms50G -Xmx50G -javaagent:"resources/jmx_prometheus_javaagent-1.3.0.jar"=9080:resources/exporter.yaml -classpath target/dependency/*:target/* org.apache.ratis.perf.SimpleMain server ${ID} ${PORT} ${PEERS} /mnt/disk0/Ratis-Perf-Test
+
+# Run Client
+java -Xms10G -Xmx10G -Dlog4j.configuration=file:./apache-ratis-3.2.0-SNAPSHOT-bin/examples/conf/log4j.properties -classpath target/dependency/*:target/* org.apache.ratis.perf.SimpleMain client ${PEERS} 100 1000000
+
+# Clean up data
+rm -rf /mnt/disk0/Ratis-Perf-Test/*
+
+$ peer: echo -e "peer-one\npeer-two\npeer-three"
+

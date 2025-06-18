@@ -1,0 +1,13 @@
+
+if [ -f ~/.zshrc ]; then
+    source ~/.zshrc
+fi
+
+export TERM="screen-256color"
+export PATH="~/.nanda/bin/":$PATH
+
+alias new-workspace='tmux -f ~/.nanda/tmux/tmux.conf new -s workspace'
+alias xw='tmux attach -t workspace'
+alias xls='tmux ls'
+alias gconf='cd ~/.nanda'
+alias path='echo -e ${PATH//:/\\n}'

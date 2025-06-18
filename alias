@@ -1,13 +1,14 @@
 
 alias reload!='. ~/.zshrc'
 
+alias ls='lsd'
 alias ll='lsd -lh'
-alias la='ls -a'
+alias la='lsd -a'
 alias tree='lsd --tree'
 
 alias g='git'
 alias gc='git reset .; git checkout .; git clean -df;'
-alias gbc='git rev-parse --abbrev-ref HEAD | c'
+alias gbc='git rev-parse --abbrev-ref HEAD | tr -d "\n" | c'
 
 alias cgrep='grep --color'
 
@@ -18,3 +19,19 @@ alias c=pbcopy
 
 alias sc='glow ~/Workspace/schedule.md'
 alias esc='nvim ~/Workspace/schedule.md'
+
+# tmux
+alias xls='tmux ls'
+alias xa='tmux attach -t'
+alias xd='tmux detach'
+
+
+alias xo='tmux attach -t ozone'
+alias xr='tmux attach -t ratis'
+alias xi='tmux attach -t iggy'
+alias xw='tmux attach -t workspace'
+alias xc='tmux attach -t cloudera'
+alias xs='tmux attach -t ssh'
+
+# kitten
+alias goto='kitten ssh'
