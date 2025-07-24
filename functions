@@ -21,13 +21,17 @@ cb() {
 
 
 # Github PR
+
+gls() {
+  gh pr list --limit 50 --json number,title,isDraft,author,createdAt --template \
+      '{{tablerow "ID" "TITLE" "DRAFT" "AUTHOR" "CREATED"}} {{range .}}{{tablerow (printf "#%v" .number) (.title) (.isDraft) (.author.name) (timeago .createdAt)}}{{end}}'
+}
+
 ghpr() {
     git rev-parse --git-dir > /dev/null 2>&1 || { echo "You are not in a git repository." && return }
     local id 
     local action
-    pr=$(gh pr list --limit 50 --json number,title,isDraft,author,createdAt --template \
-        '{{tablerow "ID" "TITLE" "DRAFT" "AUTHOR" "CREATED"}} {{range .}}{{tablerow (printf "#%v" .number) (.title) (.isDraft) (.author.name) (timeago .createdAt)}}{{end}}' \
-        | fzf --border=rounded --no-sort --height 50% --reverse --header-lines=1 --header="Choose PR")
+    pr=$(gls | fzf --border=rounded --no-sort --height 50% --reverse --header-lines=1 --header="Choose PR")
     id=$(echo $pr | awk '{print $1}' | xargs)
     action=$(echo "view \n diff \n checkout \n review \n checks \n open" | \
         fzf --border=rounded --no-sort --height 20% --reverse --header="Choose Action" | cut -d":" -f1 | xargs)
@@ -41,15 +45,19 @@ ghpr() {
 }
 
 # Apache Jira
+
+jls() {
+    curl -s "https://issues.apache.org/jira/rest/api/latest/search?jql=%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status" \
+        | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t'
+}
+
 jira() {
     declare jira
     if [ -n "$1" ]
     then
         jira=$1 
     else
-        jiras=$(curl -s "https://issues.apache.org/jira/rest/api/latest/search?jql=project%20=%20HDDS%20AND%20resolution%20=%20Unresolved%20AND%20assignee%20in%20(nanda)&fields=summary,status")
-        jira=$(echo $jiras | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv' | column -ts $'\t' | \
-            fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
+        jira=$(jls | fzf --border=rounded --no-sort --height 50% --reverse --header="Choose Jira" | cut -d " " -f1 | xargs)
 
     fi
     curl -s "https://issues.apache.org/jira/rest/api/latest/issue/${jira}?&fields=summary,status,labels,description,subtasks" > /tmp/issue.details
@@ -60,7 +68,6 @@ jira() {
     cat /tmp/issue.details | grep "\"subtasks\"\:\[\]" > /dev/null 2>&1
     if [[ $? != 0 && -s /tmp/issue.details ]]
     then
-        cat /tmp/issue.details
         echo
         echo "\u001b[32mSubtasks\u001b[37m"
         cat /tmp/issue.details | jq -r '.fields.subtasks[] |  [.key, .fields.summary] | @tsv'

@@ -79,26 +79,33 @@ post_processing = true
 persist = false
 mouse.enabled = true
 command = "open"
-binding = { key = "O", mods = "Shift|Option" }
+binding = { key = "O", mods = "Shift|Control" }
 regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩`]+"
 
 [[hints.enabled]]
 mouse.enabled = true
 post_processing = true 
 command={ program = "/Users/nvadivelu/Tools/scripts/open-ozone-jira.sh" }
-binding = { key = "H", mods = "Shift|Option" }
+binding = { key = "H", mods = "Shift|Control" }
 regex = "[Hh][Dd][Dd][Ss]-[0-9]+"
 
 [[hints.enabled]]
 mouse.enabled = true
 post_processing = true 
+command={ program = "/Users/nvadivelu/Tools/scripts/open-ozone-jira.sh" }
+binding = { key = "R", mods = "Shift|Control" }
+regex = "[Rr][Aa][Tt][Ii][Ss]-[0-9]+"
+
+[[hints.enabled]]
+mouse.enabled = true
+post_processing = true 
 command={ program = "/Users/nvadivelu/Tools/scripts/open-github-pr.sh" }
-binding = { key = "J", mods = "Shift|Option" }
+binding = { key = "J", mods = "Shift|Control" }
 regex = "#[0-9]+"
 
 [[hints.enabled]]
 mouse.enabled = true
 post_processing = true 
 command={ program = "/Users/nvadivelu/Tools/scripts/open-engesc.sh" }
-binding = { key = "E", mods = "Shift|Option" }
+binding = { key = "E", mods = "Shift|Control" }
 regex = "[Ee][Nn][Gg][Ee][Ss][Cc]-[0-9]+"
