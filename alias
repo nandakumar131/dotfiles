@@ -30,7 +30,6 @@ alias xo='tmux attach -t ozone'
 alias xr='tmux attach -t ratis'
 alias xi='tmux attach -t iggy'
 alias xw='tmux attach -t workspace'
-alias xc='tmux attach -t cloudera'
 alias xs='tmux attach -t ssh'
 
 # kitten
