@@ -1,0 +1,48 @@
+
+alias reload!='. ~/.zshrc'
+alias jd='${HOME}/.dotfiles/bin/jira-dashboard.sh'
+alias pd='${HOME}/.dotfiles/bin/pagerduty-dashboard.sh'
+alias dotup='(cd ${HOME}/.dotfiles && git pull && ./install.sh)'
+
+if command -v lsd >/dev/null 2>&1; then
+  alias ls='lsd'
+  alias ll='lsd -lh'
+  alias la='lsd -a'
+  alias tree='lsd --tree'
+fi
+
+if command -v walk >/dev/null 2>&1; then
+  alias lk='walk --icons'
+fi
+
+alias g='git'
+alias gc='git reset .; git checkout .; git clean -df;'
+alias gbc='git rev-parse --abbrev-ref HEAD | tr -d "\n" | c'
+
+alias cgrep='grep --color'
+
+# Print each PATH entry on a separate line
+alias path='echo -e ${PATH//:/\\n}'
+
+if command -v pbcopy >/dev/null 2>&1; then
+  alias c=pbcopy
+elif command -v xclip >/dev/null 2>&1; then
+  alias c='xclip -selection clipboard'
+elif command -v xsel >/dev/null 2>&1; then
+  alias c='xsel --clipboard --input'
+fi
+
+# tmux
+alias xls='tmux ls'
+alias xa='tmux attach -t'
+alias xd='tmux detach'
+
+
+alias xo='tmux attach -t ozone'
+alias xr='tmux attach -t ratis'
+alias xi='tmux attach -t iggy'
+alias xw='tmux attach -t workspace'
+alias xs='tmux attach -t ssh'
+
+# kitten
+command -v kitten >/dev/null 2>&1 && alias goto='kitten ssh'

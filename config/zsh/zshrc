@@ -1,0 +1,119 @@
+
+autoload -U colors && colors
+PROMPT="%{$fg[blue]%} ❯ %{$reset_color%}"
+
+fpath=( ${HOME}/.dotfiles/autocomplete "${fpath[@]}" )
+export PATH="${HOME}/.dotfiles/bin:${PATH}"
+
+[ -f ~/.dotfiles/config/zsh/alias ] && source ~/.dotfiles/config/zsh/alias
+[ -f ~/.dotfiles/config/zsh/functions ] && source ~/.dotfiles/config/zsh/functions
+
+# machine-local overrides/extras
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
+[ -f ~/.alias.local ] && source ~/.alias.local
+[ -f ~/.functions.local ] && source ~/.functions.local
+
+# Homebrew prefix if present (macOS or Linuxbrew); empty otherwise so the
+# path lookups below just fall through to the plain Linux package paths.
+BREW_PREFIX=""
+command -v brew >/dev/null 2>&1 && BREW_PREFIX="$(brew --prefix)"
+
+# source the first of these that exists, so config only kicks in for
+# tools/packages that are actually installed on this machine
+_source_first() {
+	local f
+	for f in "$@"; do
+		[ -f "$f" ] && source "$f" && return
+	done
+}
+
+command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
+command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+
+_source_first \
+	"${BREW_PREFIX}/etc/profile.d/z.sh" \
+	"/usr/share/z/z.sh" \
+	"/etc/profile.d/z.sh"
+
+_source_first \
+	"${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+	"/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+_source_first \
+	"${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+	"/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+
+command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
+
+if [ -s "${HOME}/.nvm/nvm.sh" ]; then
+	export NVM_DIR="${HOME}/.nvm"
+	source "${NVM_DIR}/nvm.sh"
+	[ -s "${NVM_DIR}/bash_completion" ] && source "${NVM_DIR}/bash_completion"
+fi
+
+for _pnpm_home in "${HOME}/Library/pnpm" "${HOME}/.local/share/pnpm"; do
+	if [ -d "$_pnpm_home" ]; then
+		export PNPM_HOME="$_pnpm_home"
+		case ":$PATH:" in
+		*":$PNPM_HOME:"*) ;;
+		*) export PATH="$PNPM_HOME:$PATH" ;;
+		esac
+		break
+	fi
+done
+unset _pnpm_home
+
+autoload -U compinit
+compinit -i
+
+setopt autocd
+
+# hook to load env fine from .dev-tools directory
+autoload -U add-zsh-hook
+load-local-conf() {
+     # check file exists, is regular file and is readable:
+     if [[ -f .dev-tools/env && -r .dev-tools/env ]]; then
+       source .dev-tools/env
+     fi
+}
+add-zsh-hook chpwd load-local-conf
+
+if command -v nvim >/dev/null 2>&1; then
+	export EDITOR='nvim'
+	export WALK_EDITOR='nvim'
+else
+	export EDITOR='vi'
+fi
+
+export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
+
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#737272"
+
+# history setup
+HISTFILE=${HOME}/.zsh_history
+SAVEHIST=1000
+HISTSIZE=999
+
+setopt share_history
+setopt hist_expire_dups_first
+setopt hist_ignore_dups
+setopt hist_verify
+
+# keybindings
+bindkey -e
+bindkey '^ ' forward-word
+#bindkey "^i" vi-cmd-mode
+
+bindkey "^[[A" history-search-backward
+bindkey "^[[B" history-search-forward
+
+# keybind for tmux
+bindkey "^o" kill-line
+bindkey "^u" backward-kill-line
+bindkey "^b" backward-word
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"

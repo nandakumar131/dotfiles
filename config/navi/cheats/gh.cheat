@@ -1,4 +1,0 @@
-% github
-
-# View latest CI run checks
-gh --repo nandakumar131/ozone run view
