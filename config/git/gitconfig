@@ -9,10 +9,8 @@
 	required = true
 [init]
 	defaultBranch = master
-[core]
-	pager = diff-so-fancy | less --tabs=4 -RF
-[interactive]
-	diffFilter = diff-so-fancy --patch
+[diff]
+	external = difft
 [alias]
   s = status -s
   lg = log --pretty=format:\"%C(magenta)%h%Creset -%C(red)%d%Creset %s %C(dim green)(%cr) [%an]\" --abbrev-commit -30
@@ -25,3 +23,7 @@
   del = branch -D
   a = !git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
 
+[gpg]
+	format = x509
+[gpg "x509"]
+	program = /opt/uber/bin/signingfx

@@ -30,11 +30,17 @@ _source_first() {
 command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
 command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
+autoload -U compinit
+compinit -i
+
+# fzf-tab must load after compinit, but before plugins that wrap zle
+# widgets (zsh-autosuggestions, zsh-syntax-highlighting)
 _source_first \
-	"${BREW_PREFIX}/etc/profile.d/z.sh" \
-	"/usr/share/z/z.sh" \
-	"/etc/profile.d/z.sh"
+	"${BREW_PREFIX}/share/fzf-tab/fzf-tab.zsh" \
+	"/usr/share/fzf-tab/fzf-tab.zsh"
 
 _source_first \
 	"${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
@@ -65,20 +71,7 @@ for _pnpm_home in "${HOME}/Library/pnpm" "${HOME}/.local/share/pnpm"; do
 done
 unset _pnpm_home
 
-autoload -U compinit
-compinit -i
-
 setopt autocd
-
-# hook to load env fine from .dev-tools directory
-autoload -U add-zsh-hook
-load-local-conf() {
-     # check file exists, is regular file and is readable:
-     if [[ -f .dev-tools/env && -r .dev-tools/env ]]; then
-       source .dev-tools/env
-     fi
-}
-add-zsh-hook chpwd load-local-conf
 
 if command -v nvim >/dev/null 2>&1; then
 	export EDITOR='nvim'
@@ -89,12 +82,24 @@ fi
 
 export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
 
+if command -v fd >/dev/null 2>&1; then
+	export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+	export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+	export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+fi
+
+# gum theming - match the catppuccin mocha accents used in tmux
+export GUM_CHOOSE_CURSOR_FOREGROUND="212"
+export GUM_CONFIRM_SELECTED_BACKGROUND="212"
+export GUM_INPUT_CURSOR_FOREGROUND="212"
+export GUM_SPIN_SPINNER_FOREGROUND="212"
+
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#737272"
 
 # history setup
 HISTFILE=${HOME}/.zsh_history
 SAVEHIST=1000
-HISTSIZE=999
+HISTSIZE=2000
 
 setopt share_history
 setopt hist_expire_dups_first

@@ -42,23 +42,36 @@ Update the alias `dotup` does exactly this: `git pull && ./install.sh`.
 
 `config/zsh/alias` and `config/zsh/functions` are sourced directly by
 `zshrc`, not linked standalone. `zshrc` itself only sources/inits tools that
-are actually installed (`fzf`, `starship`, `atuin`, `z`, `zsh-autosuggestions`,
-`zsh-syntax-highlighting`), so it won't error on a machine missing any of
-them.
+are actually installed (`fzf`, `starship`, `atuin`, `zoxide`, `direnv`,
+`fzf-tab`, `zsh-autosuggestions`, `zsh-syntax-highlighting`), so it won't
+error on a machine missing any of them.
+
+`zoxide` replaces `z` (`z <dir>` still jumps to frecent directories).
+`direnv` replaces the old global `.dev-tools/env` auto-source hook - add an
+`.envrc` (with `dotenv .dev-tools/env` if you want to keep loading that same
+file) to a project and run `direnv allow` there instead.
+
+`fd` backs `fzf`'s file/dir pickers (`Ctrl-T`, `Alt-C`), respecting
+`.gitignore`. `difftastic` is the default diff for `git diff`/`git log -p`/
+`git show` (`diff.external = difft` in `config/git/gitconfig`) - structural,
+syntax-aware diffs instead of line-based ones. `sesh` gives a `tmux`
+project/session picker - `prefix+s` inside tmux, or `so` outside it. `gum`
+and `tealdeer` (`tldr`) need no config beyond being on `PATH`; `install.sh`
+seeds `tldr`'s cache.
 
 `config/sketchybar/*` is macOS-only and not installed/linked automatically -
-set up manually if you use it. `bin/*.sh` (aliased as `jd`, `pd`) are small
-personal dashboard scripts.
+set up manually if you use it. `bin/*.sh` (aliased as `jd`, `ji`, `pd`) are
+small personal Jira/PagerDuty dashboard and lookup scripts.
 
 ## Machine-local overrides
 
 Not tracked by this repo, sourced automatically if present:
 
-| File               | Sourced from  | For                                              |
-|--------------------|---------------|---------------------------------------------------|
-| `~/.alias`         | `zshrc`       | extra/overriding aliases                          |
-| `~/.functions`     | `zshrc`       | extra/overriding functions                        |
-| `~/.zshrc.local`   | `zshrc` (end) | machine/work-specific env vars, tokens, PATH entries |
+| File                 | Sourced from  | For                                                 |
+|----------------------|---------------|------------------------------------------------------|
+| `~/.alias.local`     | `zshrc`       | extra/overriding aliases                             |
+| `~/.functions.local` | `zshrc`       | extra/overriding functions                           |
+| `~/.zshrc.local`     | `zshrc` (end) | machine/work-specific env vars, tokens, PATH entries |
 
 Anything machine-specific or secret (API tokens, work-only SDK paths, etc.)
 belongs in `~/.zshrc.local`, never in the tracked `zshrc`.

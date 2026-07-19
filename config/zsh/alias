@@ -1,8 +1,11 @@
 
 alias reload!='. ~/.zshrc'
 alias jd='${HOME}/.dotfiles/bin/jira-dashboard.sh'
+alias ji='${HOME}/.dotfiles/bin/jira-issue.sh'
 alias pd='${HOME}/.dotfiles/bin/pagerduty-dashboard.sh'
 alias dotup='(cd ${HOME}/.dotfiles && git pull && ./install.sh)'
+
+command -v sesh >/dev/null 2>&1 && alias so='sesh connect "$(sesh list --icons | fzf)"'
 
 if command -v lsd >/dev/null 2>&1; then
   alias ls='lsd'
@@ -16,7 +19,6 @@ if command -v walk >/dev/null 2>&1; then
 fi
 
 alias g='git'
-alias gc='git reset .; git checkout .; git clean -df;'
 alias gbc='git rev-parse --abbrev-ref HEAD | tr -d "\n" | c'
 
 alias cgrep='grep --color'
@@ -37,12 +39,6 @@ alias xls='tmux ls'
 alias xa='tmux attach -t'
 alias xd='tmux detach'
 
-
-alias xo='tmux attach -t ozone'
-alias xr='tmux attach -t ratis'
-alias xi='tmux attach -t iggy'
-alias xw='tmux attach -t workspace'
-alias xs='tmux attach -t ssh'
 
 # kitten
 command -v kitten >/dev/null 2>&1 && alias goto='kitten ssh'

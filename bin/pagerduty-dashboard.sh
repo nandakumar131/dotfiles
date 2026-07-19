@@ -114,6 +114,26 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
 
+# Run "$@" with a gum spinner when gum is installed and output is an
+# interactive, colored terminal; otherwise run it directly. The wrapped
+# command still runs in this shell (backgrounded, not re-exec'd), so it
+# keeps access to this script's functions/variables and its own error
+# output still reaches the terminal.
+run_with_spinner() {
+  local title=$1
+  shift
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    "$@" &
+    local pid=$!
+    gum spin --spinner dot --title "$title" -- bash -c "while kill -0 $pid 2>/dev/null; do sleep 0.2; done"
+    wait "$pid"
+    return $?
+  fi
+
+  "$@"
+}
+
 repeat_text() {
   local text=$1
   local count=$2
@@ -254,9 +274,17 @@ print_banner() {
   local inner_width=76
   local line title metadata
 
-  line=$(repeat_text '─' "$inner_width")
   title='PAGERDUTY TEAM DASHBOARD'
   metadata="Generated: $generated   Active: $incident_count   Triggered: $triggered_count   High: $high_count"
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    gum style --border rounded --border-foreground 51 --padding '0 2' \
+      "$(gum style --bold --foreground 231 "$title")" \
+      "$(gum style --faint "$metadata")"
+    return
+  fi
+
+  line=$(repeat_text '─' "$inner_width")
 
   if (( USE_COLOR == 1 )); then
     printf '\033[36m╭%s╮\033[0m\n' "$line"
@@ -275,6 +303,12 @@ print_message_box() {
   local message=$1
   local width=${#message}
   local line
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    printf '\n'
+    gum style --border rounded --border-foreground 51 --padding '0 2' --foreground 221 "$message"
+    return
+  fi
 
   (( width < 36 )) && width=36
   line=$(repeat_text '─' "$((width + 2))")
@@ -835,7 +869,7 @@ render_once() {
   tmp_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-dashboard.XXXXXX") || \
     fail 'Unable to create temporary file'
 
-  fetch_incidents "$tmp_file" "$since" "$until"
+  run_with_spinner 'Fetching PagerDuty incidents…' fetch_incidents "$tmp_file" "$since" "$until" || exit 1
   print_dashboard "$tmp_file" "$summary_only" "$plain_mode"
   rm -f "$tmp_file"
 }

@@ -27,10 +27,16 @@ TOOLS=(
 	"jq:jq"
 	"starship:starship"
 	"atuin:atuin"
+	"zoxide:zoxide"
+	"direnv:direnv"
 	"ast-grep:sg"
-	"diff-so-fancy:diff-so-fancy"
 	"source-highlight:source-highlight"
 	"maven:mvn"
+	"fd:fd"
+	"difftastic:difft"
+	"sesh:sesh"
+	"gum:gum"
+	"tealdeer:tldr"
 )
 
 for entry in "${TOOLS[@]}"; do
