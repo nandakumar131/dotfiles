@@ -21,8 +21,8 @@
   cob = checkout -b
   cm = checkout master
   del = branch -D
+  sh = show --ext-diff
   a = !git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
-
 [gpg]
 	format = x509
 [gpg "x509"]

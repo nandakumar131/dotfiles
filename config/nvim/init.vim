@@ -1,4 +1,3 @@
-
 " Enable syntax highlighting
 syntax on
 
@@ -18,4 +17,5 @@ set incsearch
 set title
 
 " Set auto indent
-set ai
+set autoindent
+

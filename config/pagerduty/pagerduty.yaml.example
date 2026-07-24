@@ -1,0 +1,30 @@
+# Copy this file to ~/.config/pagerduty/pagerduty.yaml and fill in your own
+# values. Every field here can also be set/overridden with an environment
+# variable of the same name shown in `pagerduty-dashboard.sh --help`.
+
+api_token: your-api-token
+# US: https://api.pagerduty.com
+# EU: https://api.eu.pagerduty.com
+api_url: https://api.pagerduty.com
+# Email sent as the 'From' header when acking incidents with `ack`. Must be
+# a real user's email on the PagerDuty account.
+requester_email: you@example.com
+page_size: 100
+title_width: 68
+# Nickname selected by --mine.
+me_nickname: me
+# token (default) or bearer for OAuth
+auth_scheme: token
+
+# Map a short nickname to each teammate's PagerDuty user ID.
+# Find the ID in the PagerDuty user URL or with the PagerDuty Users API.
+# Nicknames must not contain spaces, commas, or '='.
+team_members:
+  me: PD92AXN
+  bilbo: P9MTJXY
+  thorin: PYTGVZ5
+
+# Default escalation policy IDs used by `oncall` when no
+# --escalation-policy-id, --schedule-id, or --team-id is passed on the CLI.
+escalation_policy_ids:
+  - PEXXXXX

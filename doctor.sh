@@ -25,6 +25,7 @@ TOOLS=(
 	"lsd:lsd"
 	"walk:walk"
 	"jq:jq"
+	"yq:yq"
 	"starship:starship"
 	"atuin:atuin"
 	"zoxide:zoxide"
@@ -37,6 +38,9 @@ TOOLS=(
 	"sesh:sesh"
 	"gum:gum"
 	"tealdeer:tldr"
+	"btop:btop"
+	"dust:dust"
+	"procs:procs"
 )
 
 for entry in "${TOOLS[@]}"; do

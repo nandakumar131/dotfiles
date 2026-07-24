@@ -1,0 +1,19 @@
+# Copy this file to ~/.config/jira/jira.yaml and fill in your own values.
+# Every field here can also be set/overridden with an environment variable
+# of the same name shown in `jira.sh --help`.
+
+url: https://example.atlassian.net
+username: user@example.com
+api_token: your-api-token
+api_version: "2"
+page_size: 100
+summary_width: 72
+
+# Map a short nickname to each teammate's Jira username/account ID.
+# Keep the special currentUser() expression for your own account.
+# Nicknames must not contain spaces, commas, or '='.
+team_members:
+  me: currentUser()
+  bilbo: bilbo@hobbit.com
+  thorin: thorin@hobbit.com
+  gandalf: gandalf@hobbit.com

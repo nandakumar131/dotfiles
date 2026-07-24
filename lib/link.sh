@@ -9,19 +9,19 @@ DOTFILES_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &>/dev/null && pwd)
 LINK_SRC=(
 	"config/zsh/zshrc"
 	"config/git/gitconfig"
-	"config/vim/vimrc"
+	"config/nvim"
 	"config/alacritty"
 	"config/kitty"
-	"config/tmux"
+	"config/tmux/tmux.conf"
 	"config/starship/starship_hyprland.toml"
 )
 LINK_DEST=(
 	"${HOME}/.zshrc"
 	"${HOME}/.gitconfig"
-	"${HOME}/.vimrc"
+	"${HOME}/.config/nvim"
 	"${HOME}/.config/alacritty"
 	"${HOME}/.config/kitty"
-	"${HOME}/.config/tmux"
+	"${HOME}/.config/tmux/tmux.conf"
 	"${HOME}/.config/starship.toml"
 )
 

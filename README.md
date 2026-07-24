@@ -34,7 +34,7 @@ Update the alias `dotup` does exactly this: `git pull && ./install.sh`.
 |------------------------|-------------------------------|
 | `config/zsh/zshrc`     | `~/.zshrc`                    |
 | `config/git/gitconfig` | `~/.gitconfig`                |
-| `config/vim/vimrc`     | `~/.vimrc`                    |
+| `config/nvim`          | `~/.config/vimrc`             |
 | `config/alacritty`     | `~/.config/alacritty`         |
 | `config/kitty`         | `~/.config/kitty`             |
 | `config/tmux`          | `~/.config/tmux`              |
@@ -45,11 +45,6 @@ Update the alias `dotup` does exactly this: `git pull && ./install.sh`.
 are actually installed (`fzf`, `starship`, `atuin`, `zoxide`, `direnv`,
 `fzf-tab`, `zsh-autosuggestions`, `zsh-syntax-highlighting`), so it won't
 error on a machine missing any of them.
-
-`zoxide` replaces `z` (`z <dir>` still jumps to frecent directories).
-`direnv` replaces the old global `.dev-tools/env` auto-source hook - add an
-`.envrc` (with `dotenv .dev-tools/env` if you want to keep loading that same
-file) to a project and run `direnv allow` there instead.
 
 `fd` backs `fzf`'s file/dir pickers (`Ctrl-T`, `Alt-C`), respecting
 `.gitignore`. `difftastic` is the default diff for `git diff`/`git log -p`/

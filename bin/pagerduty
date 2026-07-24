@@ -1,0 +1,1882 @@
+#!/usr/bin/env bash
+
+set -u
+
+SCRIPT_VERSION="1.5"
+PROGRAM_NAME=${0##*/}
+
+# Connection settings and team member nicknames are read from a YAML config
+# file (see config/pagerduty/pagerduty.yaml.example in this repo), defaulting
+# to ~/.config/pagerduty/pagerduty.yaml. Any of PAGERDUTY_API_TOKEN,
+# PAGERDUTY_API_URL, PAGERDUTY_PAGE_SIZE, PAGERDUTY_TITLE_WIDTH,
+# PAGERDUTY_ME_NICKNAME, PAGERDUTY_AUTH_SCHEME set as environment variables
+# override the config file's values.
+PAGERDUTY_CONFIG_FILE="${PAGERDUTY_CONFIG_FILE:-$HOME/.config/pagerduty/pagerduty.yaml}"
+
+PAGERDUTY_API_TOKEN="${PAGERDUTY_API_TOKEN:-}"
+PAGERDUTY_API_URL="${PAGERDUTY_API_URL:-}"
+PAGERDUTY_PAGE_SIZE="${PAGERDUTY_PAGE_SIZE:-}"
+PAGERDUTY_TITLE_WIDTH="${PAGERDUTY_TITLE_WIDTH:-}"
+PAGERDUTY_ME_NICKNAME="${PAGERDUTY_ME_NICKNAME:-}"
+PAGERDUTY_AUTH_SCHEME="${PAGERDUTY_AUTH_SCHEME:-}"
+PAGERDUTY_ESCALATION_POLICY_IDS="${PAGERDUTY_ESCALATION_POLICY_IDS:-}"
+PAGERDUTY_REQUESTER_EMAIL="${PAGERDUTY_REQUESTER_EMAIL:-}"
+
+# Populated by load_config from the YAML file's team_members map.
+# Format: "nickname=PAGERDUTY_USER_ID". Nicknames must not contain spaces,
+# commas, or '='.
+PAGERDUTY_TEAM_MEMBERS=()
+
+# Read connection settings and team members from PAGERDUTY_CONFIG_FILE,
+# filling in only values not already set via environment variables, then
+# apply built-in defaults for anything still unset.
+load_config() {
+  local key value
+
+  if [[ -f "$PAGERDUTY_CONFIG_FILE" ]]; then
+    PAGERDUTY_API_TOKEN="${PAGERDUTY_API_TOKEN:-$(yq eval '.api_token // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_API_URL="${PAGERDUTY_API_URL:-$(yq eval '.api_url // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_PAGE_SIZE="${PAGERDUTY_PAGE_SIZE:-$(yq eval '.page_size // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_TITLE_WIDTH="${PAGERDUTY_TITLE_WIDTH:-$(yq eval '.title_width // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_ME_NICKNAME="${PAGERDUTY_ME_NICKNAME:-$(yq eval '.me_nickname // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_AUTH_SCHEME="${PAGERDUTY_AUTH_SCHEME:-$(yq eval '.auth_scheme // ""' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_ESCALATION_POLICY_IDS="${PAGERDUTY_ESCALATION_POLICY_IDS:-$(yq eval '.escalation_policy_ids // [] | join(",")' "$PAGERDUTY_CONFIG_FILE")}"
+    PAGERDUTY_REQUESTER_EMAIL="${PAGERDUTY_REQUESTER_EMAIL:-$(yq eval '.requester_email // ""' "$PAGERDUTY_CONFIG_FILE")}"
+
+    while IFS= read -r key; do
+      [[ -n "$key" ]] || continue
+      value=$(yq eval ".team_members.\"${key}\"" "$PAGERDUTY_CONFIG_FILE")
+      PAGERDUTY_TEAM_MEMBERS+=("${key}=${value}")
+    done < <(yq eval '.team_members | keys | .[]' "$PAGERDUTY_CONFIG_FILE" 2>/dev/null)
+  fi
+
+  PAGERDUTY_API_URL="${PAGERDUTY_API_URL:-https://api.pagerduty.com}"
+  PAGERDUTY_PAGE_SIZE="${PAGERDUTY_PAGE_SIZE:-100}"
+  PAGERDUTY_TITLE_WIDTH="${PAGERDUTY_TITLE_WIDTH:-68}"
+  PAGERDUTY_ME_NICKNAME="${PAGERDUTY_ME_NICKNAME:-me}"
+  PAGERDUTY_AUTH_SCHEME="${PAGERDUTY_AUTH_SCHEME:-token}"
+}
+
+# Enable colors only when stdout is an interactive terminal. Set FORCE_COLOR=1
+# to keep colors when piping, or NO_COLOR=1 to disable them explicitly.
+USE_COLOR=0
+if [[ -z "${NO_COLOR:-}" && ( -t 1 || "${FORCE_COLOR:-0}" == "1" ) ]]; then
+  USE_COLOR=1
+fi
+
+usage() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME <command> [options]
+
+Commands:
+  list       Show the incident dashboard (default filters: team, active)
+  oncall     Show the current on-call schedule
+  ack        Acknowledge incidents (by number, or interactive picker)
+  open       Open an incident in your browser (interactive picker)
+  members    List configured nickname -> PagerDuty user ID mappings
+
+Run '$PROGRAM_NAME <command> --help' for command-specific options.
+
+Global:
+  --version            Print script version and exit
+  -h, --help           Show this help
+
+Config file (defaults: ~/.config/pagerduty/pagerduty.yaml):
+  api_token, api_url, page_size, title_width, me_nickname, auth_scheme,
+  team_members, escalation_policy_ids, requester_email
+  -- see config/pagerduty/pagerduty.yaml.example
+
+Environment (overrides the config file):
+  PAGERDUTY_CONFIG_FILE    path to the YAML config file
+  PAGERDUTY_API_TOKEN      PagerDuty REST API token
+  PAGERDUTY_API_URL        Default: https://api.pagerduty.com
+                           EU: https://api.eu.pagerduty.com
+  PAGERDUTY_AUTH_SCHEME    token (default) or bearer for OAuth
+  PAGERDUTY_ME_NICKNAME    Nickname used by --mine; default: me
+  PAGERDUTY_PAGE_SIZE      Results per request; default/max: 100
+  PAGERDUTY_TITLE_WIDTH    Maximum incident title length; default: 68
+  PAGERDUTY_ESCALATION_POLICY_IDS
+                           Comma-separated default escalation policy IDs
+                           for 'oncall'
+  PAGERDUTY_REQUESTER_EMAIL
+                           Email sent as the 'From' header when acking
+                           incidents with 'ack'
+  NO_COLOR                 Set to 1 to disable ANSI colors
+  FORCE_COLOR              Set to 1 to force colors in dashboard mode
+USAGE
+}
+
+usage_list() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME list [--mine | --team | --member NICKNAME]
+                [--status STATUS] [--urgency URGENCY]
+                [--service-id ID] [--team-id ID]
+                [--since ISO8601] [--until ISO8601]
+                [--summary-only] [--watch SECONDS]
+                [--plain | --dashboard]
+
+Examples:
+  $PROGRAM_NAME list --mine
+  $PROGRAM_NAME list --team
+  $PROGRAM_NAME list --member alice
+  $PROGRAM_NAME list --member alice --member bob
+  $PROGRAM_NAME list --member alice,bob --status triggered
+  $PROGRAM_NAME list --team --urgency high
+  $PROGRAM_NAME list --team --service-id PXXXXXX
+  $PROGRAM_NAME list --team --team-id PYYYYYY
+  $PROGRAM_NAME list --team --since '2026-07-01T00:00:00Z'
+  $PROGRAM_NAME list --team --watch 60
+  $PROGRAM_NAME list --team --plain | grep triggered
+
+Assignee selection:
+  --mine               Incidents assigned to PAGERDUTY_ME_NICKNAME
+  --team               Incidents assigned to all configured members (default)
+  --member NICKNAME    Select a configured nickname. Repeat it or pass a
+                       comma-separated list to include multiple teammates.
+
+Incident filters:
+  --status STATUS      active, triggered, or acknowledged. Repeat or use commas.
+                       Default: active (triggered and acknowledged)
+  --urgency URGENCY    high or low. Repeat or use commas. Default: both
+  --service-id ID      Filter by PagerDuty service ID. Repeat or use commas
+  --team-id ID         Filter by PagerDuty team ID. Repeat or use commas
+  --since ISO8601      Start of incident creation range
+  --until ISO8601      End of incident creation range
+
+Display:
+  --summary-only       Hide the detailed incident table
+  --watch SECONDS      Continuously refresh the dashboard
+  --plain, --script,
+  --tsv                Emit incident rows as tab-separated values only. No
+                       banner, headings, summaries, borders, or colors.
+  --dashboard          Force the full dashboard when stdout is piped or
+                       redirected. By default, non-terminal output is TSV.
+
+Plain TSV fields:
+  assignee, incident, status, urgency, age, title
+USAGE
+}
+
+usage_oncall() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME oncall [--escalation-policy-id ID] [--schedule-id ID]
+                [--team-id ID] [--all-levels]
+                [--watch SECONDS] [--plain | --dashboard]
+
+Examples:
+  $PROGRAM_NAME oncall --escalation-policy-id PXXXXXX
+  $PROGRAM_NAME oncall --team-id PYYYYYY --plain
+
+Filters:
+  --escalation-policy-id ID
+                       Filter by escalation policy ID. Repeat or use commas.
+                       Default: escalation_policy_ids from the config file
+  --schedule-id ID     Filter by schedule ID. Repeat or use commas
+  --team-id ID         Filter by PagerDuty team ID
+  --all-levels         Show every escalation level, not just who is on-call now
+  At least one of --escalation-policy-id, --schedule-id, --team-id, or a
+  configured escalation_policy_ids default is required.
+
+Display:
+  --watch SECONDS      Continuously refresh the schedule
+  --plain, --script,
+  --tsv                Emit rows as tab-separated values only.
+  --dashboard          Force the full dashboard when stdout is piped or
+                       redirected. By default, non-terminal output is TSV.
+
+Plain TSV fields:
+  level, user, escalation_policy, schedule, start, end
+USAGE
+}
+
+usage_ack() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME ack [INCIDENT_NUMBER...] [--mine | --team | --member NICKNAME]
+               [--status STATUS] [--urgency URGENCY]
+               [--service-id ID] [--team-id ID]
+
+With one or more INCIDENT_NUMBER (the '#NNN' shown in 'list'/'ack'/'open';
+the '#' is optional, repeat the argument or use commas for multiple),
+acknowledges them directly. With none, shows an interactive picker (gum or
+fzf) of matching open incidents; select one or more (tab to multi-select)
+to acknowledge them.
+
+Examples:
+  $PROGRAM_NAME ack 12345
+  $PROGRAM_NAME ack 12345,12346 --team-id PYYYYYY
+  $PROGRAM_NAME ack
+
+Requires PAGERDUTY_REQUESTER_EMAIL (or 'requester_email' in the config file).
+
+Filters (same defaults as 'list'; also scope which incidents INCIDENT_NUMBER
+is looked up against):
+  --mine, --team, --member NICKNAME
+  --status STATUS, --urgency URGENCY, --service-id ID, --team-id ID
+USAGE
+}
+
+usage_open() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME open [--mine | --team | --member NICKNAME]
+                [--status STATUS] [--urgency URGENCY]
+                [--service-id ID] [--team-id ID]
+
+Shows an interactive picker (gum or fzf) of matching open incidents and
+opens the selected incident's PagerDuty page in your browser.
+
+Filters (same defaults as 'list'):
+  --mine, --team, --member NICKNAME
+  --status STATUS, --urgency URGENCY, --service-id ID, --team-id ID
+USAGE
+}
+
+usage_members() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME members
+
+Prints configured nickname -> PagerDuty user ID mappings and exits.
+USAGE
+}
+
+fail() {
+  if (( USE_COLOR == 1 )); then
+    printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2
+  else
+    printf 'ERROR: %s\n' "$*" >&2
+  fi
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
+}
+
+use_gum() {
+  (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1
+}
+
+open_url() {
+  local url=$1
+
+  if command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url"
+  else
+    printf '%s\n' "$url"
+  fi
+}
+
+# Run "$@" with a gum spinner when gum is installed and output is an
+# interactive, colored terminal; otherwise run it directly. The wrapped
+# command still runs in this shell (backgrounded, not re-exec'd), so it
+# keeps access to this script's functions/variables and its own error
+# output still reaches the terminal.
+run_with_spinner() {
+  local title=$1
+  shift
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    "$@" &
+    local pid=$!
+    gum spin --spinner dot --title "$title" -- bash -c "while kill -0 $pid 2>/dev/null; do sleep 0.2; done"
+    wait "$pid"
+    return $?
+  fi
+
+  "$@"
+}
+
+repeat_text() {
+  local text=$1
+  local count=$2
+  local result=''
+
+  while (( count > 0 )); do
+    result+="$text"
+    count=$((count - 1))
+  done
+
+  printf '%s' "$result"
+}
+
+render_tsv_table() {
+  local title=$1
+  local theme=$2
+
+  awk -F '\t' -v title="$title" -v theme="$theme" -v use_color="$USE_COLOR" '
+    function repeat_char(char, count, result, i) {
+      result = ""
+      for (i = 0; i < count; i++) result = result char
+      return result
+    }
+
+    function paint(code, text) {
+      if (!use_color) return text
+      return sprintf("\033[%sm%s\033[0m", code, text)
+    }
+
+    function status_color(text, lowered) {
+      lowered = tolower(text)
+      if (lowered == "triggered") return "1;91"
+      if (lowered == "acknowledged") return "1;93"
+      if (lowered == "resolved") return "1;92"
+      return "1;95"
+    }
+
+    function urgency_color(text, lowered) {
+      lowered = tolower(text)
+      if (lowered == "high") return "1;91"
+      if (lowered == "low") return "1;96"
+      return "1;97"
+    }
+
+    function styled_cell(row, col, raw, padded, heading) {
+      padded = sprintf("%-*s", widths[col], raw)
+      heading = data[1, col]
+
+      if (row == 1) return paint("1;97", padded)
+
+      if (theme == "summary") {
+        if (heading == "ASSIGNEE") return paint("1;96", padded)
+        if (heading == "TOTAL") return paint("1;97", padded)
+        if (heading == "TRIGGERED") return paint("1;91", padded)
+        if (heading == "ACKNOWLEDGED") return paint("1;93", padded)
+        if (heading == "HIGH") return paint("1;91", padded)
+        if (heading == "LOW") return paint("1;96", padded)
+        if (heading == "OLDEST") return paint("2;37", padded)
+      }
+
+      if (theme == "status") {
+        if (heading == "STATUS") return paint(status_color(raw), padded)
+        if (heading == "COUNT") return paint("1;97", padded)
+      }
+
+      if (theme == "service") {
+        if (heading == "SERVICE") return paint("1;94", padded)
+        if (heading == "TOTAL") return paint("1;97", padded)
+        if (heading == "TRIGGERED") return paint("1;91", padded)
+        if (heading == "ACKNOWLEDGED") return paint("1;93", padded)
+        if (heading == "HIGH") return paint("1;91", padded)
+      }
+
+      if (theme == "incidents") {
+        if (heading == "ASSIGNEE") return paint("1;96", padded)
+        if (heading == "INCIDENT") return paint("1;94", padded)
+        if (heading == "STATUS") return paint(status_color(raw), padded)
+        if (heading == "URGENCY") return paint(urgency_color(raw), padded)
+        if (heading == "AGE") return paint("2;37", padded)
+      }
+
+      if (theme == "members" && heading == "NICKNAME") return paint("1;96", padded)
+
+      if (theme == "oncall") {
+        if (heading == "LEVEL") return paint("1;97", padded)
+        if (heading == "USER") return paint("1;96", padded)
+        if (heading == "ESCALATION POLICY") return paint("1;94", padded)
+        if (heading == "SCHEDULE") return paint("1;94", padded)
+        if (heading == "START" || heading == "END") return paint("2;37", padded)
+      }
+
+      return padded
+    }
+
+    function print_border(left, middle, right, i, line) {
+      line = left
+      for (i = 1; i <= columns; i++) {
+        line = line repeat_char("─", widths[i] + 2)
+        line = line (i < columns ? middle : right)
+      }
+      print paint("36", line)
+    }
+
+    {
+      rows = NR
+      if (NF > columns) columns = NF
+      for (i = 1; i <= NF; i++) {
+        gsub(/\r/, "", $i)
+        data[NR, i] = $i
+        if (length($i) > widths[i]) widths[i] = length($i)
+      }
+    }
+
+    END {
+      if (rows == 0) exit
+
+      print ""
+      print paint("1;96", title)
+      print_border("┌", "┬", "┐")
+
+      for (row = 1; row <= rows; row++) {
+        if (use_color) printf "\033[36m│\033[0m"
+        else printf "│"
+
+        for (col = 1; col <= columns; col++) {
+          raw = ((row SUBSEP col) in data ? data[row, col] : "")
+          printf " %s ", styled_cell(row, col, raw)
+
+          if (use_color) printf "\033[36m│\033[0m"
+          else printf "│"
+        }
+        printf "\n"
+
+        if (row == 1 && rows > 1) print_border("├", "┼", "┤")
+      }
+
+      print_border("└", "┴", "┘")
+    }
+  '
+}
+
+print_banner() {
+  local generated=$1
+  local incident_count=$2
+  local high_count=$3
+  local triggered_count=$4
+  local inner_width=76
+  local line title metadata
+
+  title='PAGERDUTY TEAM DASHBOARD'
+  metadata="Generated: $generated   Active: $incident_count   Triggered: $triggered_count   High: $high_count"
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    gum style --border rounded --border-foreground 51 --padding '0 2' \
+      "$(gum style --bold --foreground 231 "$title")" \
+      "$(gum style --faint "$metadata")"
+    return
+  fi
+
+  line=$(repeat_text '─' "$inner_width")
+
+  if (( USE_COLOR == 1 )); then
+    printf '\033[36m╭%s╮\033[0m\n' "$line"
+    printf '\033[36m│\033[0m \033[1;97m%-74s\033[0m \033[36m│\033[0m\n' "$title"
+    printf '\033[36m│\033[0m \033[2;37m%-74s\033[0m \033[36m│\033[0m\n' "$metadata"
+    printf '\033[36m╰%s╯\033[0m\n' "$line"
+  else
+    printf '╭%s╮\n' "$line"
+    printf '│ %-74s │\n' "$title"
+    printf '│ %-74s │\n' "$metadata"
+    printf '╰%s╯\n' "$line"
+  fi
+}
+
+print_oncall_banner() {
+  local generated=$1
+  local inner_width=76
+  local line title
+
+  title='PAGERDUTY ON-CALL'
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    gum style --border rounded --border-foreground 51 --padding '0 2' \
+      "$(gum style --bold --foreground 231 "$title")" \
+      "$(gum style --faint "Generated: $generated")"
+    return
+  fi
+
+  line=$(repeat_text '─' "$inner_width")
+
+  if (( USE_COLOR == 1 )); then
+    printf '\033[36m╭%s╮\033[0m\n' "$line"
+    printf '\033[36m│\033[0m \033[1;97m%-74s\033[0m \033[36m│\033[0m\n' "$title"
+    printf '\033[36m│\033[0m \033[2;37m%-74s\033[0m \033[36m│\033[0m\n' "Generated: $generated"
+    printf '\033[36m╰%s╯\033[0m\n' "$line"
+  else
+    printf '╭%s╮\n' "$line"
+    printf '│ %-74s │\n' "$title"
+    printf '│ %-74s │\n' "Generated: $generated"
+    printf '╰%s╯\n' "$line"
+  fi
+}
+
+print_message_box() {
+  local message=$1
+  local width=${#message}
+  local line
+
+  if (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1; then
+    printf '\n'
+    gum style --border rounded --border-foreground 51 --padding '0 2' --foreground 221 "$message"
+    return
+  fi
+
+  (( width < 36 )) && width=36
+  line=$(repeat_text '─' "$((width + 2))")
+
+  if (( USE_COLOR == 1 )); then
+    printf '\n\033[36m┌%s┐\033[0m\n' "$line"
+    printf '\033[36m│\033[0m \033[1;93m%-*s\033[0m \033[36m│\033[0m\n' "$width" "$message"
+    printf '\033[36m└%s┘\033[0m\n' "$line"
+  else
+    printf '\n┌%s┐\n' "$line"
+    printf '│ %-*s │\n' "$width" "$message"
+    printf '└%s┘\n' "$line"
+  fi
+}
+
+member_user_id() {
+  local wanted_nickname=$1
+  local entry nickname user_id
+
+  for entry in "${PAGERDUTY_TEAM_MEMBERS[@]}"; do
+    nickname=${entry%%=*}
+    user_id=${entry#*=}
+
+    if [[ "$nickname" == "$wanted_nickname" ]]; then
+      [[ -n "$user_id" && "$user_id" != "$entry" ]] || \
+        fail "Invalid PAGERDUTY_TEAM_MEMBERS entry for nickname: $nickname"
+      printf '%s' "$user_id"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+validate_member_entry() {
+  local entry=$1
+  local nickname=${entry%%=*}
+  local user_id=${entry#*=}
+
+  [[ -n "$nickname" && -n "$user_id" && "$user_id" != "$entry" ]] || \
+    fail "Invalid PAGERDUTY_TEAM_MEMBERS entry: $entry"
+  [[ "$nickname" != *','* && "$nickname" != *' '* ]] || \
+    fail "Invalid PagerDuty nickname: $nickname"
+}
+
+list_members() {
+  local entry nickname user_id
+
+  {
+    printf 'NICKNAME\tPAGERDUTY_USER_ID\n'
+    for entry in "${PAGERDUTY_TEAM_MEMBERS[@]}"; do
+      validate_member_entry "$entry"
+      nickname=${entry%%=*}
+      user_id=${entry#*=}
+      printf '%s\t%s\n' "$nickname" "$user_id"
+    done
+  } | render_tsv_table 'CONFIGURED TEAM MEMBERS' 'members'
+}
+
+append_unique_value() {
+  local array_name=$1
+  local value=$2
+  local current
+
+  [[ -n "$value" ]] || fail "Empty value supplied for $array_name"
+
+  case "$array_name" in
+    SELECTED_MEMBERS)
+      for current in "${SELECTED_MEMBERS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      SELECTED_MEMBERS+=("$value")
+      ;;
+    STATUS_FILTERS)
+      for current in "${STATUS_FILTERS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      STATUS_FILTERS+=("$value")
+      ;;
+    URGENCY_FILTERS)
+      for current in "${URGENCY_FILTERS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      URGENCY_FILTERS+=("$value")
+      ;;
+    SERVICE_IDS)
+      for current in "${SERVICE_IDS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      SERVICE_IDS+=("$value")
+      ;;
+    PD_TEAM_IDS)
+      for current in "${PD_TEAM_IDS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      PD_TEAM_IDS+=("$value")
+      ;;
+    ESCALATION_POLICY_IDS)
+      for current in "${ESCALATION_POLICY_IDS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      ESCALATION_POLICY_IDS+=("$value")
+      ;;
+    SCHEDULE_IDS)
+      for current in "${SCHEDULE_IDS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      SCHEDULE_IDS+=("$value")
+      ;;
+    INCIDENT_NUMBERS)
+      for current in "${INCIDENT_NUMBERS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      INCIDENT_NUMBERS+=("$value")
+      ;;
+    SELECTED_USER_IDS)
+      for current in "${SELECTED_USER_IDS[@]-}"; do
+        [[ "$current" == "$value" ]] && return
+      done
+      SELECTED_USER_IDS+=("$value")
+      ;;
+    *)
+      fail "Internal error: unsupported array $array_name"
+      ;;
+  esac
+}
+
+parse_csv_argument() {
+  local array_name=$1
+  local value=$2
+  local item
+  local old_ifs=$IFS
+
+  IFS=','
+  for item in $value; do
+    append_unique_value "$array_name" "$item"
+  done
+  IFS=$old_ifs
+}
+
+parse_status_argument() {
+  local value=$1
+  local item
+  local old_ifs=$IFS
+
+  IFS=','
+  for item in $value; do
+    case "$item" in
+      active)
+        append_unique_value STATUS_FILTERS triggered
+        append_unique_value STATUS_FILTERS acknowledged
+        ;;
+      triggered|acknowledged)
+        append_unique_value STATUS_FILTERS "$item"
+        ;;
+      resolved)
+        fail 'Resolved incidents cannot be filtered by current assignee; use triggered or acknowledged.'
+        ;;
+      *)
+        fail "Invalid --status value: $item"
+        ;;
+    esac
+  done
+  IFS=$old_ifs
+}
+
+parse_urgency_argument() {
+  local value=$1
+  local item
+  local old_ifs=$IFS
+
+  IFS=','
+  for item in $value; do
+    case "$item" in
+      high|low)
+        append_unique_value URGENCY_FILTERS "$item"
+        ;;
+      all)
+        URGENCY_FILTERS=()
+        ;;
+      *)
+        fail "Invalid --urgency value: $item"
+        ;;
+    esac
+  done
+  IFS=$old_ifs
+}
+
+resolve_selected_users() {
+  local mode=$1
+  local entry nickname user_id
+
+  SELECTED_USER_IDS=()
+  SELECTED_LABEL_PAIRS=()
+
+  if [[ "$mode" == "mine" ]]; then
+    SELECTED_MEMBERS=("$PAGERDUTY_ME_NICKNAME")
+    mode='members'
+  fi
+
+  if [[ "$mode" == "members" ]]; then
+    for nickname in "${SELECTED_MEMBERS[@]}"; do
+      user_id=$(member_user_id "$nickname") || \
+        fail "Unknown PagerDuty nickname: $nickname. Use --list-members to see valid nicknames."
+      append_unique_value SELECTED_USER_IDS "$user_id"
+      SELECTED_LABEL_PAIRS+=("$user_id=$nickname")
+    done
+  else
+    for entry in "${PAGERDUTY_TEAM_MEMBERS[@]}"; do
+      validate_member_entry "$entry"
+      nickname=${entry%%=*}
+      user_id=${entry#*=}
+      append_unique_value SELECTED_USER_IDS "$user_id"
+      SELECTED_LABEL_PAIRS+=("$user_id=$nickname")
+    done
+  fi
+
+  [[ -n "${SELECTED_USER_IDS[0]+set}" ]] || fail 'No PagerDuty team members selected or configured'
+}
+
+auth_header_value() {
+  case "$PAGERDUTY_AUTH_SCHEME" in
+    token)
+      printf 'Token token=%s' "$PAGERDUTY_API_TOKEN"
+      ;;
+    bearer)
+      printf 'Bearer %s' "$PAGERDUTY_API_TOKEN"
+      ;;
+    *)
+      fail 'PAGERDUTY_AUTH_SCHEME must be token or bearer'
+      ;;
+  esac
+}
+
+api_error_message() {
+  local response_file=$1
+  jq -r '
+    .error.message //
+    .message //
+    .error //
+    "PagerDuty request failed"
+  ' "$response_file" 2>/dev/null || printf 'PagerDuty request failed'
+}
+
+fetch_incidents() {
+  local output_file=$1
+  local since=$2
+  local until=$3
+  local api_url="${PAGERDUTY_API_URL%/}/incidents"
+  local offset=0
+  local response_file http_code more count
+  local auth_header
+  local user_id status urgency service_id team_id
+  local -a curl_args
+
+  auth_header=$(auth_header_value)
+  : > "$output_file"
+
+  while :; do
+    response_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-response.XXXXXX") || \
+      fail 'Unable to create PagerDuty response file'
+
+    curl_args=(
+      -sS
+      --retry 3
+      --retry-delay 2
+      --retry-all-errors
+      -o "$response_file"
+      -w '%{http_code}'
+      -G "$api_url"
+      -H 'Accept: application/vnd.pagerduty+json;version=2'
+      -H "Authorization: $auth_header"
+      --data-urlencode "limit=$PAGERDUTY_PAGE_SIZE"
+      --data-urlencode "offset=$offset"
+      --data-urlencode 'time_zone=UTC'
+      --data-urlencode 'sort_by=created_at:desc'
+    )
+
+    # The ${ARRAY[@]-} form is required for macOS Bash 3.2 when
+    # `set -u` is enabled and an optional array is empty.
+    for user_id in "${SELECTED_USER_IDS[@]-}"; do
+      [[ -n "$user_id" ]] || continue
+      curl_args+=(--data-urlencode "user_ids[]=$user_id")
+    done
+
+    for status in "${STATUS_FILTERS[@]-}"; do
+      [[ -n "$status" ]] || continue
+      curl_args+=(--data-urlencode "statuses[]=$status")
+    done
+
+    for urgency in "${URGENCY_FILTERS[@]-}"; do
+      [[ -n "$urgency" ]] || continue
+      curl_args+=(--data-urlencode "urgencies[]=$urgency")
+    done
+
+    for service_id in "${SERVICE_IDS[@]-}"; do
+      [[ -n "$service_id" ]] || continue
+      curl_args+=(--data-urlencode "service_ids[]=$service_id")
+    done
+
+    for team_id in "${PD_TEAM_IDS[@]-}"; do
+      [[ -n "$team_id" ]] || continue
+      curl_args+=(--data-urlencode "team_ids[]=$team_id")
+    done
+
+    if [[ -n "$since" ]]; then
+      curl_args+=(--data-urlencode "since=$since")
+    fi
+
+    if [[ -n "$until" ]]; then
+      curl_args+=(--data-urlencode "until=$until")
+    fi
+
+    if [[ -z "$since" && -z "$until" ]]; then
+      curl_args+=(--data-urlencode 'date_range=all')
+    fi
+
+    http_code=$(curl "${curl_args[@]}") || {
+      rm -f "$response_file"
+      fail "Unable to connect to $api_url"
+    }
+
+    case "$http_code" in
+      2??)
+        ;;
+      *)
+        local error_message
+        error_message=$(api_error_message "$response_file")
+        rm -f "$response_file"
+        fail "PagerDuty API returned HTTP $http_code: $error_message"
+        ;;
+    esac
+
+    jq -e . "$response_file" >/dev/null 2>&1 || {
+      rm -f "$response_file"
+      fail 'PagerDuty returned invalid JSON'
+    }
+
+    jq -c '.incidents[]?' "$response_file" >> "$output_file"
+
+    count=$(jq '.incidents | length' "$response_file")
+    more=$(jq -r '.more // false' "$response_file")
+    offset=$((offset + count))
+    rm -f "$response_file"
+
+    [[ "$more" == "true" && "$count" -gt 0 ]] || break
+  done
+}
+
+fetch_oncalls() {
+  local output_file=$1
+  local all_levels=$2
+  local api_url="${PAGERDUTY_API_URL%/}/oncalls"
+  local offset=0
+  local response_file http_code more count
+  local auth_header
+  local escalation_policy_id schedule_id team_id
+  local -a curl_args
+
+  auth_header=$(auth_header_value)
+  : > "$output_file"
+
+  while :; do
+    response_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-response.XXXXXX") || \
+      fail 'Unable to create PagerDuty response file'
+
+    curl_args=(
+      -sS
+      --retry 3
+      --retry-delay 2
+      --retry-all-errors
+      -o "$response_file"
+      -w '%{http_code}'
+      -G "$api_url"
+      -H 'Accept: application/vnd.pagerduty+json;version=2'
+      -H "Authorization: $auth_header"
+      --data-urlencode "limit=$PAGERDUTY_PAGE_SIZE"
+      --data-urlencode "offset=$offset"
+      --data-urlencode 'time_zone=UTC'
+    )
+
+    [[ "$all_levels" == "1" ]] || curl_args+=(--data-urlencode 'earliest=true')
+
+    # The ${ARRAY[@]-} form is required for macOS Bash 3.2 when
+    # `set -u` is enabled and an optional array is empty.
+    for escalation_policy_id in "${ESCALATION_POLICY_IDS[@]-}"; do
+      [[ -n "$escalation_policy_id" ]] || continue
+      curl_args+=(--data-urlencode "escalation_policy_ids[]=$escalation_policy_id")
+    done
+
+    for schedule_id in "${SCHEDULE_IDS[@]-}"; do
+      [[ -n "$schedule_id" ]] || continue
+      curl_args+=(--data-urlencode "schedule_ids[]=$schedule_id")
+    done
+
+    for team_id in "${PD_TEAM_IDS[@]-}"; do
+      [[ -n "$team_id" ]] || continue
+      curl_args+=(--data-urlencode "team_ids[]=$team_id")
+    done
+
+    http_code=$(curl "${curl_args[@]}") || {
+      rm -f "$response_file"
+      fail "Unable to connect to $api_url"
+    }
+
+    case "$http_code" in
+      2??)
+        ;;
+      *)
+        local error_message
+        error_message=$(api_error_message "$response_file")
+        rm -f "$response_file"
+        fail "PagerDuty API returned HTTP $http_code: $error_message"
+        ;;
+    esac
+
+    jq -e . "$response_file" >/dev/null 2>&1 || {
+      rm -f "$response_file"
+      fail 'PagerDuty returned invalid JSON'
+    }
+
+    jq -c '.oncalls[]?' "$response_file" >> "$output_file"
+
+    count=$(jq '.oncalls | length' "$response_file")
+    more=$(jq -r '.more // false' "$response_file")
+    offset=$((offset + count))
+    rm -f "$response_file"
+
+    [[ "$more" == "true" && "$count" -gt 0 ]] || break
+  done
+}
+
+print_oncalls() {
+  local oncalls_file=$1
+  local plain_mode=$2
+  local rows
+
+  rows=$(jq -sr '
+    def clean_time:
+      sub("\\.[0-9]+Z$"; "Z")
+      | sub("\\+00:00$"; "Z");
+
+    def to_ist:
+      if . == null then "-"
+      else (clean_time | fromdateiso8601 + 19800 | strftime("%Y-%m-%d %H:%M IST"))
+      end;
+
+    sort_by(.escalation_policy.summary // "", .escalation_level, (.user.summary // "")) | .[]
+    | [
+        (.escalation_level // "-" | tostring),
+        (.user.summary // .user.id // "-"),
+        (.escalation_policy.summary // "-"),
+        (.schedule.summary // "Manual"),
+        (.start | to_ist),
+        (.end | to_ist)
+      ]
+    | @tsv
+  ' "$oncalls_file")
+
+  if [[ "$plain_mode" == "1" ]]; then
+    [[ -n "$rows" ]] && printf '%s\n' "$rows"
+    return
+  fi
+
+  if [[ -z "$rows" ]]; then
+    print_message_box 'No matching on-call schedule entries.'
+    return
+  fi
+
+  {
+    printf 'LEVEL\tUSER\tESCALATION POLICY\tSCHEDULE\tSTART\tEND\n'
+    printf '%s\n' "$rows"
+  } | render_tsv_table 'CURRENT ON-CALL' 'oncall'
+}
+
+render_oncall_once() {
+  local all_levels=$1
+  local plain_mode=$2
+  local tmp_file
+
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-oncall.XXXXXX") || \
+    fail 'Unable to create temporary file'
+
+  run_with_spinner 'Fetching PagerDuty on-call schedule…' fetch_oncalls "$tmp_file" "$all_levels" || exit 1
+
+  if [[ "$plain_mode" != "1" ]]; then
+    print_oncall_banner "$(date '+%Y-%m-%d %H:%M:%S')"
+  fi
+
+  print_oncalls "$tmp_file" "$plain_mode"
+  rm -f "$tmp_file"
+}
+
+selected_ids_json() {
+  printf '%s\n' "${SELECTED_USER_IDS[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))'
+}
+
+selected_labels_json() {
+  printf '%s\n' "${SELECTED_LABEL_PAIRS[@]}" | jq -Rsc '
+    split("\n")
+    | map(select(length > 0))
+    | map(capture("^(?<id>[^=]+)=(?<label>.*)$"))
+    | map({key: .id, value: .label})
+    | from_entries
+  '
+}
+
+
+print_plain_incidents() {
+  local incidents_file=$1
+  local ids_json labels_json
+
+  [[ -s "$incidents_file" ]] || return 0
+
+  ids_json=$(selected_ids_json)
+  labels_json=$(selected_labels_json)
+
+  jq -sr \
+    --argjson selected_ids "$ids_json" \
+    --argjson labels "$labels_json" '
+    def clean_time:
+      sub("\\.[0-9]+Z$"; "Z")
+      | sub("\\+00:00$"; "Z");
+
+    def epoch:
+      clean_time | fromdateiso8601;
+
+    def age_text($timestamp):
+      ((now - ($timestamp | epoch)) | floor) as $seconds
+      | if $seconds < 0 then "0m"
+        elif $seconds < 3600 then (($seconds / 60 | floor | tostring) + "m")
+        elif $seconds < 86400 then (($seconds / 3600 | floor | tostring) + "h")
+        else (($seconds / 86400 | floor | tostring) + "d")
+        end;
+
+    (
+      [ .[] as $incident
+        | $incident.assignments[]?.assignee as $assignee
+        | select($selected_ids | index($assignee.id))
+        | {
+            assignee: ($labels[$assignee.id] // $assignee.summary // $assignee.id),
+            incident: $incident
+          }
+      ]
+      | sort_by(.assignee | ascii_downcase)
+      | group_by(.assignee | ascii_downcase)[]
+      | sort_by(.incident.updated_at)
+      | reverse[]
+      | [
+          .assignee,
+          ("#" + (.incident.incident_number | tostring)),
+          (.incident.status // "-"),
+          (.incident.urgency // "-"),
+          age_text(.incident.created_at),
+          ((.incident.title // "") | gsub("[\\r\\n\\t]+"; " "))
+        ]
+    )
+    | @tsv
+  ' "$incidents_file"
+}
+
+print_dashboard() {
+  local incidents_file=$1
+  local summary_only=$2
+  local plain_mode=$3
+  local generated incident_count high_count triggered_count
+  local ids_json labels_json
+
+  if [[ "$plain_mode" == "1" ]]; then
+    print_plain_incidents "$incidents_file"
+    return
+  fi
+
+  generated=$(date '+%Y-%m-%d %H:%M:%S')
+  incident_count=$(jq -s 'length' "$incidents_file")
+  high_count=$(jq -s 'map(select(.urgency == "high")) | length' "$incidents_file")
+  triggered_count=$(jq -s 'map(select(.status == "triggered")) | length' "$incidents_file")
+  ids_json=$(selected_ids_json)
+  labels_json=$(selected_labels_json)
+
+  print_banner "$generated" "$incident_count" "$high_count" "$triggered_count"
+
+  if [[ ! -s "$incidents_file" ]]; then
+    print_message_box 'No matching active PagerDuty incidents.'
+    return
+  fi
+
+  jq -sr --argjson selected_ids "$ids_json" --argjson labels "$labels_json" '
+    def clean_time:
+      sub("\\.[0-9]+Z$"; "Z")
+      | sub("\\+00:00$"; "Z");
+
+    def epoch:
+      clean_time | fromdateiso8601;
+
+    def age_text($timestamp):
+      ((now - ($timestamp | epoch)) | floor) as $seconds
+      | if $seconds < 0 then "0m"
+        elif $seconds < 3600 then (($seconds / 60 | floor | tostring) + "m")
+        elif $seconds < 86400 then (($seconds / 3600 | floor | tostring) + "h")
+        else (($seconds / 86400 | floor | tostring) + "d")
+        end;
+
+    def assignee_rows:
+      [ .[] as $incident
+        | $incident.assignments[]?.assignee as $assignee
+        | select($selected_ids | index($assignee.id))
+        | {
+            assignee: ($labels[$assignee.id] // $assignee.summary // $assignee.id),
+            incident: $incident
+          }
+      ];
+
+    assignee_rows
+    | ["ASSIGNEE", "TOTAL", "TRIGGERED", "ACKNOWLEDGED", "HIGH", "LOW", "OLDEST"],
+      (
+        sort_by(.assignee | ascii_downcase)
+        | group_by(.assignee | ascii_downcase)[]
+        | [
+            .[0].assignee,
+            length,
+            (map(select(.incident.status == "triggered")) | length),
+            (map(select(.incident.status == "acknowledged")) | length),
+            (map(select(.incident.urgency == "high")) | length),
+            (map(select(.incident.urgency == "low")) | length),
+            (min_by(.incident.created_at).incident.created_at | age_text(.))
+          ]
+      )
+    | @tsv
+  ' "$incidents_file" | render_tsv_table 'TEAM SUMMARY' 'summary'
+
+  jq -sr '
+    ["STATUS", "COUNT"],
+    (
+      sort_by(.status)
+      | group_by(.status)[]
+      | [.[0].status, length]
+    )
+    | @tsv
+  ' "$incidents_file" | render_tsv_table 'STATUS BREAKDOWN' 'status'
+
+  jq -sr '
+    ["SERVICE", "TOTAL", "TRIGGERED", "ACKNOWLEDGED", "HIGH"],
+    (
+      sort_by(.service.summary // "Unknown")
+      | group_by(.service.summary // "Unknown")[]
+      | [
+          (.[0].service.summary // "Unknown"),
+          length,
+          (map(select(.status == "triggered")) | length),
+          (map(select(.status == "acknowledged")) | length),
+          (map(select(.urgency == "high")) | length)
+        ]
+    )
+    | @tsv
+  ' "$incidents_file" | render_tsv_table 'SERVICE BREAKDOWN' 'service'
+
+  [[ "$summary_only" == "1" ]] && return
+
+  jq -sr \
+    --argjson selected_ids "$ids_json" \
+    --argjson labels "$labels_json" \
+    --argjson title_width "$PAGERDUTY_TITLE_WIDTH" '
+    def clip($n):
+      tostring
+      | if length > $n then .[0:($n - 3)] + "..." else . end;
+
+    def clean_time:
+      sub("\\.[0-9]+Z$"; "Z")
+      | sub("\\+00:00$"; "Z");
+
+    def epoch:
+      clean_time | fromdateiso8601;
+
+    def age_text($timestamp):
+      ((now - ($timestamp | epoch)) | floor) as $seconds
+      | if $seconds < 0 then "0m"
+        elif $seconds < 3600 then (($seconds / 60 | floor | tostring) + "m")
+        elif $seconds < 86400 then (($seconds / 3600 | floor | tostring) + "h")
+        else (($seconds / 86400 | floor | tostring) + "d")
+        end;
+
+    ["ASSIGNEE", "INCIDENT", "STATUS", "URGENCY", "AGE", "TITLE"],
+    (
+      [ .[] as $incident
+        | $incident.assignments[]?.assignee as $assignee
+        | select($selected_ids | index($assignee.id))
+        | {
+            assignee: ($labels[$assignee.id] // $assignee.summary // $assignee.id),
+            incident: $incident
+          }
+      ]
+      | sort_by(.assignee | ascii_downcase)
+      | group_by(.assignee | ascii_downcase)[]
+      | sort_by(.incident.updated_at)
+      | reverse[]
+      | [
+          .assignee,
+          ("#" + (.incident.incident_number | tostring)),
+          .incident.status,
+          (.incident.urgency // "-"),
+          age_text(.incident.created_at),
+          (.incident.title | gsub("[\\r\\n\\t]+"; " ") | clip($title_width))
+        ]
+    )
+    | @tsv
+  ' "$incidents_file" | render_tsv_table 'INCIDENTS — GROUPED BY ASSIGNEE, NEWEST UPDATED FIRST' 'incidents'
+}
+
+render_once() {
+  local mode=$1
+  local since=$2
+  local until=$3
+  local summary_only=$4
+  local plain_mode=$5
+  local tmp_file
+
+  resolve_selected_users "$mode"
+
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-dashboard.XXXXXX") || \
+    fail 'Unable to create temporary file'
+
+  run_with_spinner 'Fetching PagerDuty incidents…' fetch_incidents "$tmp_file" "$since" "$until" || exit 1
+  print_dashboard "$tmp_file" "$summary_only" "$plain_mode"
+  rm -f "$tmp_file"
+}
+
+# TSV rows for the ack/open incident pickers: id, incident number, status,
+# urgency, assignees, title, html_url. One row per incident (deduplicated
+# even when multiple selected assignees share an incident).
+build_incident_picker_rows() {
+  local incidents_file=$1
+  local ids_json labels_json
+
+  [[ -s "$incidents_file" ]] || return 0
+
+  ids_json=$(selected_ids_json)
+  labels_json=$(selected_labels_json)
+
+  jq -sr --argjson selected_ids "$ids_json" --argjson labels "$labels_json" '
+    [ .[] as $incident
+      | ($incident.assignments // [])
+        | map(.assignee)
+        | map(select(.id as $aid | $selected_ids | index($aid)))
+        | map($labels[.id] // .summary // .id) as $assignees
+      | select($assignees | length > 0)
+      | {
+          id: $incident.id,
+          number: $incident.incident_number,
+          status: $incident.status,
+          urgency: ($incident.urgency // "-"),
+          assignees: ($assignees | join(", ")),
+          title: ($incident.title | gsub("[\\r\\n\\t]+"; " ")),
+          html_url: $incident.html_url,
+          updated_at: $incident.updated_at
+        }
+    ]
+    | sort_by(.updated_at) | reverse | .[]
+    | [ .id, ("#" + (.number | tostring)), .status, .urgency, .assignees, .title, .html_url ]
+    | @tsv
+  ' "$incidents_file"
+}
+
+# Show an interactive picker over TSV $rows (gum when available, else fzf).
+# multi=1 allows multi-select (ack); multi=0 is single-select (open).
+pick_incidents() {
+  local rows=$1
+  local multi=$2
+
+  if use_gum; then
+    if [[ "$multi" == "1" ]]; then
+      column -ts $'\t' <<<"$rows" \
+        | gum filter --no-limit --placeholder 'Choose incidents (tab to multi-select)…' --height 15 --header 'Choose Incident(s)'
+    else
+      column -ts $'\t' <<<"$rows" \
+        | gum filter --placeholder 'Choose an incident…' --height 15 --header 'Choose Incident'
+    fi
+  else
+    require_command fzf
+    if [[ "$multi" == "1" ]]; then
+      column -ts $'\t' <<<"$rows" \
+        | fzf -m --border=rounded --no-sort --height 50% --reverse --header='Choose Incident(s) (tab to multi-select)'
+    else
+      column -ts $'\t' <<<"$rows" \
+        | fzf --border=rounded --no-sort --height 50% --reverse --header='Choose Incident'
+    fi
+  fi
+}
+
+# Return the raw TSV rows (from build_incident_picker_rows) whose incident
+# number ("#" column, '#' optional) matches one of the given numbers.
+filter_incident_rows_by_number() {
+  local rows=$1
+  shift
+  local -a numbers=("$@")
+  local line number n
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    number=$(awk -F'\t' '{print $2}' <<<"$line")
+    number=${number#\#}
+    for n in "${numbers[@]}"; do
+      n=${n#\#}
+      if [[ "$number" == "$n" ]]; then
+        printf '%s\n' "$line"
+        break
+      fi
+    done
+  done <<<"$rows"
+}
+
+# Acknowledge one or more PagerDuty incident IDs in a single PUT request.
+ack_incidents() {
+  local -a ids=("$@")
+  local auth_header body response_file http_code
+
+  (( ${#ids[@]} > 0 )) || return 0
+
+  auth_header=$(auth_header_value)
+
+  body=$(printf '%s\n' "${ids[@]}" | jq -Rsc '
+    split("\n") | map(select(length > 0))
+    | { incidents: map({ id: ., type: "incident_reference", status: "acknowledged" }) }
+  ')
+
+  response_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-ack.XXXXXX") || \
+    fail 'Unable to create temporary file'
+
+  http_code=$(curl -sS \
+    -o "$response_file" \
+    -w '%{http_code}' \
+    -X PUT "${PAGERDUTY_API_URL%/}/incidents" \
+    -H 'Accept: application/vnd.pagerduty+json;version=2' \
+    -H "Authorization: $auth_header" \
+    -H "From: $PAGERDUTY_REQUESTER_EMAIL" \
+    -H 'Content-Type: application/json' \
+    -d "$body") || {
+    rm -f "$response_file"
+    fail "Unable to connect to ${PAGERDUTY_API_URL%/}/incidents"
+  }
+
+  case "$http_code" in
+    2??) ;;
+    *)
+      local error_message
+      error_message=$(api_error_message "$response_file")
+      rm -f "$response_file"
+      fail "PagerDuty API returned HTTP $http_code: $error_message"
+      ;;
+  esac
+
+  jq -r '.incidents[]? | "Acknowledged #\(.incident_number)  \(.title)"' "$response_file"
+  rm -f "$response_file"
+}
+
+cmd_list() {
+  local mode='team'
+  local since=''
+  local until=''
+  local summary_only=0
+  local watch_seconds=0
+  local output_mode=auto
+  local plain_mode=0
+
+  # Globals are used for Bash 3.2 compatibility on macOS.
+  SELECTED_MEMBERS=()
+  SELECTED_USER_IDS=()
+  SELECTED_LABEL_PAIRS=()
+  STATUS_FILTERS=()
+  URGENCY_FILTERS=()
+  SERVICE_IDS=()
+  PD_TEAM_IDS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --mine)
+        mode='mine'
+        ;;
+      --team)
+        mode='team'
+        ;;
+      --member|--team-member)
+        (( $# >= 2 )) || fail "$1 requires a nickname"
+        mode='members'
+        parse_csv_argument SELECTED_MEMBERS "$2"
+        shift
+        ;;
+      --status)
+        (( $# >= 2 )) || fail '--status requires active, triggered, or acknowledged'
+        parse_status_argument "$2"
+        shift
+        ;;
+      --urgency)
+        (( $# >= 2 )) || fail '--urgency requires high or low'
+        parse_urgency_argument "$2"
+        shift
+        ;;
+      --service-id)
+        (( $# >= 2 )) || fail '--service-id requires a PagerDuty service ID'
+        parse_csv_argument SERVICE_IDS "$2"
+        shift
+        ;;
+      --team-id)
+        (( $# >= 2 )) || fail '--team-id requires a PagerDuty team ID'
+        parse_csv_argument PD_TEAM_IDS "$2"
+        shift
+        ;;
+      --since)
+        (( $# >= 2 )) || fail '--since requires an ISO-8601 timestamp'
+        since=$2
+        shift
+        ;;
+      --until)
+        (( $# >= 2 )) || fail '--until requires an ISO-8601 timestamp'
+        until=$2
+        shift
+        ;;
+      --summary-only)
+        summary_only=1
+        ;;
+      --plain|--script|--tsv)
+        output_mode=plain
+        ;;
+      --dashboard)
+        output_mode=dashboard
+        ;;
+      --watch)
+        (( $# >= 2 )) || fail '--watch requires seconds'
+        watch_seconds=$2
+        [[ "$watch_seconds" =~ ^[1-9][0-9]*$ ]] || fail '--watch must be a positive integer'
+        shift
+        ;;
+      -h|--help)
+        usage_list
+        exit 0
+        ;;
+      *)
+        fail "Unknown option: $1"
+        ;;
+    esac
+    shift
+  done
+
+  require_command curl
+  require_command jq
+  require_command awk
+  require_command yq
+
+  load_config
+
+  case "$output_mode" in
+    plain) plain_mode=1 ;;
+    dashboard) plain_mode=0 ;;
+    auto)
+      if [[ -t 1 ]]; then plain_mode=0; else plain_mode=1; fi
+      ;;
+  esac
+
+  if (( plain_mode == 1 )); then
+    USE_COLOR=0
+  fi
+
+  if (( watch_seconds > 0 && plain_mode == 1 )); then
+    fail '--watch requires dashboard output; add --dashboard or remove --watch'
+  fi
+
+  [[ "$PAGERDUTY_PAGE_SIZE" =~ ^[1-9][0-9]*$ ]] || \
+    fail 'PAGERDUTY_PAGE_SIZE must be a positive integer'
+  (( PAGERDUTY_PAGE_SIZE <= 100 )) || \
+    fail 'PAGERDUTY_PAGE_SIZE cannot exceed the PagerDuty maximum of 100'
+
+  if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
+    fail '--member requires at least one nickname'
+  fi
+
+  if [[ -z "${STATUS_FILTERS[0]+set}" ]]; then
+    STATUS_FILTERS=(triggered acknowledged)
+  fi
+
+  : "${PAGERDUTY_API_TOKEN:?Set PAGERDUTY_API_TOKEN or configure 'api_token' in $PAGERDUTY_CONFIG_FILE (see config/pagerduty/pagerduty.yaml.example)}"
+
+  if (( watch_seconds > 0 )); then
+    while :; do
+      clear
+      render_once "$mode" "$since" "$until" "$summary_only" "$plain_mode"
+      if (( USE_COLOR == 1 )); then
+        printf '\n\033[2;37mRefreshing every %s seconds. Press Ctrl-C to stop.\033[0m\n' "$watch_seconds"
+      else
+        printf '\nRefreshing every %s seconds. Press Ctrl-C to stop.\n' "$watch_seconds"
+      fi
+      sleep "$watch_seconds"
+    done
+  else
+    render_once "$mode" "$since" "$until" "$summary_only" "$plain_mode"
+  fi
+}
+
+cmd_oncall() {
+  local all_levels=0
+  local watch_seconds=0
+  local output_mode=auto
+  local plain_mode=0
+
+  PD_TEAM_IDS=()
+  ESCALATION_POLICY_IDS=()
+  SCHEDULE_IDS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --escalation-policy-id)
+        (( $# >= 2 )) || fail '--escalation-policy-id requires a PagerDuty escalation policy ID'
+        parse_csv_argument ESCALATION_POLICY_IDS "$2"
+        shift
+        ;;
+      --schedule-id)
+        (( $# >= 2 )) || fail '--schedule-id requires a PagerDuty schedule ID'
+        parse_csv_argument SCHEDULE_IDS "$2"
+        shift
+        ;;
+      --team-id)
+        (( $# >= 2 )) || fail '--team-id requires a PagerDuty team ID'
+        parse_csv_argument PD_TEAM_IDS "$2"
+        shift
+        ;;
+      --all-levels)
+        all_levels=1
+        ;;
+      --plain|--script|--tsv)
+        output_mode=plain
+        ;;
+      --dashboard)
+        output_mode=dashboard
+        ;;
+      --watch)
+        (( $# >= 2 )) || fail '--watch requires seconds'
+        watch_seconds=$2
+        [[ "$watch_seconds" =~ ^[1-9][0-9]*$ ]] || fail '--watch must be a positive integer'
+        shift
+        ;;
+      -h|--help)
+        usage_oncall
+        exit 0
+        ;;
+      *)
+        fail "Unknown option: $1"
+        ;;
+    esac
+    shift
+  done
+
+  require_command curl
+  require_command jq
+  require_command awk
+  require_command yq
+
+  load_config
+
+  case "$output_mode" in
+    plain) plain_mode=1 ;;
+    dashboard) plain_mode=0 ;;
+    auto)
+      if [[ -t 1 ]]; then plain_mode=0; else plain_mode=1; fi
+      ;;
+  esac
+
+  if (( plain_mode == 1 )); then
+    USE_COLOR=0
+  fi
+
+  if (( watch_seconds > 0 && plain_mode == 1 )); then
+    fail '--watch requires dashboard output; add --dashboard or remove --watch'
+  fi
+
+  [[ "$PAGERDUTY_PAGE_SIZE" =~ ^[1-9][0-9]*$ ]] || \
+    fail 'PAGERDUTY_PAGE_SIZE must be a positive integer'
+  (( PAGERDUTY_PAGE_SIZE <= 100 )) || \
+    fail 'PAGERDUTY_PAGE_SIZE cannot exceed the PagerDuty maximum of 100'
+
+  if [[ -z "${ESCALATION_POLICY_IDS[0]+set}" && -n "$PAGERDUTY_ESCALATION_POLICY_IDS" ]]; then
+    parse_csv_argument ESCALATION_POLICY_IDS "$PAGERDUTY_ESCALATION_POLICY_IDS"
+  fi
+
+  if [[ -z "${ESCALATION_POLICY_IDS[0]+set}" && -z "${SCHEDULE_IDS[0]+set}" && -z "${PD_TEAM_IDS[0]+set}" ]]; then
+    fail 'oncall requires --escalation-policy-id, --schedule-id, --team-id, or a configured escalation_policy_ids default'
+  fi
+
+  : "${PAGERDUTY_API_TOKEN:?Set PAGERDUTY_API_TOKEN or configure 'api_token' in $PAGERDUTY_CONFIG_FILE (see config/pagerduty/pagerduty.yaml.example)}"
+
+  if (( watch_seconds > 0 )); then
+    while :; do
+      clear
+      render_oncall_once "$all_levels" "$plain_mode"
+      if (( USE_COLOR == 1 )); then
+        printf '\n\033[2;37mRefreshing every %s seconds. Press Ctrl-C to stop.\033[0m\n' "$watch_seconds"
+      else
+        printf '\nRefreshing every %s seconds. Press Ctrl-C to stop.\n' "$watch_seconds"
+      fi
+      sleep "$watch_seconds"
+    done
+  else
+    render_oncall_once "$all_levels" "$plain_mode"
+  fi
+}
+
+cmd_members() {
+  case "${1:-}" in
+    -h|--help)
+      usage_members
+      exit 0
+      ;;
+  esac
+
+  require_command curl
+  require_command jq
+  require_command awk
+  require_command yq
+
+  load_config
+  list_members
+}
+
+# Shared arg parsing for cmd_ack/cmd_open: incident scoping flags only.
+parse_incident_scope_args() {
+  mode='team'
+
+  SELECTED_MEMBERS=()
+  SELECTED_USER_IDS=()
+  SELECTED_LABEL_PAIRS=()
+  STATUS_FILTERS=()
+  URGENCY_FILTERS=()
+  SERVICE_IDS=()
+  PD_TEAM_IDS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --mine)
+        mode='mine'
+        ;;
+      --team)
+        mode='team'
+        ;;
+      --member|--team-member)
+        (( $# >= 2 )) || fail "$1 requires a nickname"
+        mode='members'
+        parse_csv_argument SELECTED_MEMBERS "$2"
+        shift
+        ;;
+      --status)
+        (( $# >= 2 )) || fail '--status requires active, triggered, or acknowledged'
+        parse_status_argument "$2"
+        shift
+        ;;
+      --urgency)
+        (( $# >= 2 )) || fail '--urgency requires high or low'
+        parse_urgency_argument "$2"
+        shift
+        ;;
+      --service-id)
+        (( $# >= 2 )) || fail '--service-id requires a PagerDuty service ID'
+        parse_csv_argument SERVICE_IDS "$2"
+        shift
+        ;;
+      --team-id)
+        (( $# >= 2 )) || fail '--team-id requires a PagerDuty team ID'
+        parse_csv_argument PD_TEAM_IDS "$2"
+        shift
+        ;;
+      -h|--help)
+        "$INCIDENT_SCOPE_USAGE_FN"
+        exit 0
+        ;;
+      *)
+        fail "Unknown option: $1"
+        ;;
+    esac
+    shift
+  done
+}
+
+cmd_ack() {
+  local mode='team'
+
+  SELECTED_MEMBERS=()
+  SELECTED_USER_IDS=()
+  SELECTED_LABEL_PAIRS=()
+  STATUS_FILTERS=()
+  URGENCY_FILTERS=()
+  SERVICE_IDS=()
+  PD_TEAM_IDS=()
+  INCIDENT_NUMBERS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --mine)
+        mode='mine'
+        ;;
+      --team)
+        mode='team'
+        ;;
+      --member|--team-member)
+        (( $# >= 2 )) || fail "$1 requires a nickname"
+        mode='members'
+        parse_csv_argument SELECTED_MEMBERS "$2"
+        shift
+        ;;
+      --status)
+        (( $# >= 2 )) || fail '--status requires active, triggered, or acknowledged'
+        parse_status_argument "$2"
+        shift
+        ;;
+      --urgency)
+        (( $# >= 2 )) || fail '--urgency requires high or low'
+        parse_urgency_argument "$2"
+        shift
+        ;;
+      --service-id)
+        (( $# >= 2 )) || fail '--service-id requires a PagerDuty service ID'
+        parse_csv_argument SERVICE_IDS "$2"
+        shift
+        ;;
+      --team-id)
+        (( $# >= 2 )) || fail '--team-id requires a PagerDuty team ID'
+        parse_csv_argument PD_TEAM_IDS "$2"
+        shift
+        ;;
+      -h|--help)
+        usage_ack
+        exit 0
+        ;;
+      -*)
+        fail "Unknown option: $1"
+        ;;
+      *)
+        parse_csv_argument INCIDENT_NUMBERS "${1//\#/}"
+        ;;
+    esac
+    shift
+  done
+
+  require_command curl
+  require_command jq
+  require_command awk
+  require_command yq
+
+  load_config
+
+  if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
+    fail '--member requires at least one nickname'
+  fi
+
+  if [[ -z "${STATUS_FILTERS[0]+set}" ]]; then
+    STATUS_FILTERS=(triggered acknowledged)
+  fi
+
+  : "${PAGERDUTY_API_TOKEN:?Set PAGERDUTY_API_TOKEN or configure 'api_token' in $PAGERDUTY_CONFIG_FILE (see config/pagerduty/pagerduty.yaml.example)}"
+  : "${PAGERDUTY_REQUESTER_EMAIL:?Set PAGERDUTY_REQUESTER_EMAIL or configure 'requester_email' in $PAGERDUTY_CONFIG_FILE (see config/pagerduty/pagerduty.yaml.example)}"
+
+  resolve_selected_users "$mode"
+
+  local tmp_file rows selected line
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-dashboard.XXXXXX") || \
+    fail 'Unable to create temporary file'
+
+  run_with_spinner 'Fetching PagerDuty incidents…' fetch_incidents "$tmp_file" '' '' || exit 1
+  rows=$(build_incident_picker_rows "$tmp_file")
+  rm -f "$tmp_file"
+
+  if [[ -z "$rows" ]]; then
+    print_message_box 'No matching open incidents.'
+    return
+  fi
+
+  if [[ -n "${INCIDENT_NUMBERS[0]+set}" ]]; then
+    selected=$(filter_incident_rows_by_number "$rows" "${INCIDENT_NUMBERS[@]}")
+    [[ -n "$selected" ]] || fail "No matching open incident(s) for: ${INCIDENT_NUMBERS[*]}"
+  else
+    require_command column
+    selected=$(pick_incidents "$rows" 1)
+    [[ -n "$selected" ]] || exit 0
+  fi
+
+  local -a ids=()
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    ids+=("$(awk '{print $1}' <<<"$line")")
+  done <<<"$selected"
+
+  ack_incidents "${ids[@]}"
+}
+
+cmd_open() {
+  local mode
+  INCIDENT_SCOPE_USAGE_FN=usage_open
+  parse_incident_scope_args "$@"
+
+  require_command curl
+  require_command jq
+  require_command awk
+  require_command yq
+  require_command column
+
+  load_config
+
+  if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
+    fail '--member requires at least one nickname'
+  fi
+
+  if [[ -z "${STATUS_FILTERS[0]+set}" ]]; then
+    STATUS_FILTERS=(triggered acknowledged)
+  fi
+
+  : "${PAGERDUTY_API_TOKEN:?Set PAGERDUTY_API_TOKEN or configure 'api_token' in $PAGERDUTY_CONFIG_FILE (see config/pagerduty/pagerduty.yaml.example)}"
+
+  resolve_selected_users "$mode"
+
+  local tmp_file rows selected url
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/pagerduty-dashboard.XXXXXX") || \
+    fail 'Unable to create temporary file'
+
+  run_with_spinner 'Fetching PagerDuty incidents…' fetch_incidents "$tmp_file" '' '' || exit 1
+  rows=$(build_incident_picker_rows "$tmp_file")
+  rm -f "$tmp_file"
+
+  if [[ -z "$rows" ]]; then
+    print_message_box 'No matching open incidents.'
+    return
+  fi
+
+  selected=$(pick_incidents "$rows" 0)
+  [[ -n "$selected" ]] || exit 0
+
+  url=$(awk '{print $NF}' <<<"$selected")
+  open_url "$url"
+}
+
+main() {
+  local command=${1:-}
+
+  case "$command" in
+    ''|-h|--help)
+      usage
+      exit 0
+      ;;
+    --version)
+      printf 'pagerduty-dashboard %s\n' "$SCRIPT_VERSION"
+      exit 0
+      ;;
+    list)
+      shift
+      cmd_list "$@"
+      ;;
+    oncall)
+      shift
+      cmd_oncall "$@"
+      ;;
+    ack)
+      shift
+      cmd_ack "$@"
+      ;;
+    open)
+      shift
+      cmd_open "$@"
+      ;;
+    members)
+      shift
+      cmd_members "$@"
+      ;;
+    *)
+      fail "Unknown command: $command (see --help)"
+      ;;
+  esac
+}
+
+main "$@"

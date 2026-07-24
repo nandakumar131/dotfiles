@@ -1,11 +1,12 @@
 
 alias reload!='. ~/.zshrc'
-alias jd='${HOME}/.dotfiles/bin/jira-dashboard.sh'
-alias ji='${HOME}/.dotfiles/bin/jira-issue.sh'
-alias pd='${HOME}/.dotfiles/bin/pagerduty-dashboard.sh'
-alias dotup='(cd ${HOME}/.dotfiles && git pull && ./install.sh)'
+alias ji="${HOME}/.dotfiles/bin/jira.sh"
+alias pd="${HOME}/.dotfiles/bin/pagerduty-dashboard.sh"
+alias gl="${HOME}/.dotfiles/bin/git-log-preview.sh"
+alias dotup="(cd ${HOME}/.dotfiles && git pull && ./install.sh)"
 
-command -v sesh >/dev/null 2>&1 && alias so='sesh connect "$(sesh list --icons | fzf)"'
+command -v nvim >/dev/null 2>&1 && alias vi='nvim'
+command -v sesh >/dev/null 2>&1 && alias so='sesh connect "$(sesh list -t | fzf)"'
 
 if command -v lsd >/dev/null 2>&1; then
   alias ls='lsd'
@@ -27,7 +28,7 @@ alias cgrep='grep --color'
 alias path='echo -e ${PATH//:/\\n}'
 
 if command -v pbcopy >/dev/null 2>&1; then
-  alias c=pbcopy
+  alias c='pbcopy'
 elif command -v xclip >/dev/null 2>&1; then
   alias c='xclip -selection clipboard'
 elif command -v xsel >/dev/null 2>&1; then

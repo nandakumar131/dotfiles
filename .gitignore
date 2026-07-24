@@ -15,3 +15,5 @@ Use newlines at EOF consistently
 
 # confidential
 private*
+
+.envrc

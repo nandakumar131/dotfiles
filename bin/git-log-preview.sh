@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# 1. Define a rich, color-coded log format (Date, Author, Hash, Subject)
+LOG_FORMAT="%Cred%h %C(bold blue)[%ad]%Creset %Cgreen(%an)%Creset %s %C(yellow)%d"
+
+# 2. Pipe the log into fzf and capture execution behaviors safely
+git log --color=always --date=short --pretty=format:"$LOG_FORMAT" | fzf \
+    --ansi \
+    --reverse \
+    --header "Use arrows to preview. Press ENTER to inspect commit, ESC to exit." \
+    --preview "echo {} | grep -oE '[a-f0-9]{7,}' | head -n 1 | xargs -I % env DFT_COLOR=always git show --color=always --ext-diff %" \
+    --preview-window="right:60%:wrap" \
+    --bind "enter:execute(echo {} | grep -oE '[a-f0-9]{7,}' | head -n 1 | xargs -I % env DFT_COLOR=always git show --color=always --ext-diff % | less -R)" \
+    --bind "esc:abort" || true
+

@@ -2,29 +2,53 @@
 
 set -u
 
-SCRIPT_VERSION="2.5"
+SCRIPT_VERSION="3.0"
 PROGRAM_NAME=${0##*/}
 
-# Required environment variables:
-#   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
-#
-# Map a short nickname to each teammate's Jira username/account ID.
-#
-# Format: "nickname=jira-user"
-# Keep the special currentUser() expression for your own account.
-# Nicknames must not contain spaces, commas, or '='.
-JIRA_TEAM_MEMBERS=(
-  "me=currentUser()"
-  "ahmar=ahmar@uber.com"
-  "deepika=dchoudhary@uber.com"
-  "jai=jai.bhobe@uber.com"
-  "mayank=mayank.rastogi@uber.com"
-  "simhadri=simhadrig@uber.com"
-)
+# Connection settings and team member nicknames are read from a YAML config
+# file (see config/jira/jira.yaml.example in this repo), defaulting to
+# ~/.config/jira/jira.yaml. Any of JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN,
+# JIRA_API_VERSION, JIRA_PAGE_SIZE, JIRA_SUMMARY_WIDTH set as environment
+# variables override the config file's values.
+JIRA_CONFIG_FILE="${JIRA_CONFIG_FILE:-$HOME/.config/jira/jira.yaml}"
 
-JIRA_API_VERSION="${JIRA_API_VERSION:-2}"
-PAGE_SIZE="${JIRA_PAGE_SIZE:-100}"
-SUMMARY_WIDTH="${JIRA_SUMMARY_WIDTH:-72}"
+JIRA_URL="${JIRA_URL:-}"
+JIRA_USERNAME="${JIRA_USERNAME:-}"
+JIRA_API_TOKEN="${JIRA_API_TOKEN:-}"
+JIRA_API_VERSION="${JIRA_API_VERSION:-}"
+PAGE_SIZE="${JIRA_PAGE_SIZE:-}"
+SUMMARY_WIDTH="${JIRA_SUMMARY_WIDTH:-}"
+
+# Populated by load_config from the YAML file's team_members map.
+# Format: "nickname=jira-user". Keep the special currentUser() expression
+# for your own account. Nicknames must not contain spaces, commas, or '='.
+JIRA_TEAM_MEMBERS=()
+
+# Read connection settings and team members from JIRA_CONFIG_FILE, filling
+# in only values not already set via environment variables, then apply
+# built-in defaults for anything still unset.
+load_config() {
+  local key value
+
+  if [[ -f "$JIRA_CONFIG_FILE" ]]; then
+    JIRA_URL="${JIRA_URL:-$(yq eval '.url // ""' "$JIRA_CONFIG_FILE")}"
+    JIRA_USERNAME="${JIRA_USERNAME:-$(yq eval '.username // ""' "$JIRA_CONFIG_FILE")}"
+    JIRA_API_TOKEN="${JIRA_API_TOKEN:-$(yq eval '.api_token // ""' "$JIRA_CONFIG_FILE")}"
+    JIRA_API_VERSION="${JIRA_API_VERSION:-$(yq eval '.api_version // ""' "$JIRA_CONFIG_FILE")}"
+    PAGE_SIZE="${PAGE_SIZE:-$(yq eval '.page_size // ""' "$JIRA_CONFIG_FILE")}"
+    SUMMARY_WIDTH="${SUMMARY_WIDTH:-$(yq eval '.summary_width // ""' "$JIRA_CONFIG_FILE")}"
+
+    while IFS= read -r key; do
+      [[ -n "$key" ]] || continue
+      value=$(yq eval ".team_members.\"${key}\"" "$JIRA_CONFIG_FILE")
+      JIRA_TEAM_MEMBERS+=("${key}=${value}")
+    done < <(yq eval '.team_members | keys | .[]' "$JIRA_CONFIG_FILE" 2>/dev/null)
+  fi
+
+  JIRA_API_VERSION="${JIRA_API_VERSION:-2}"
+  PAGE_SIZE="${PAGE_SIZE:-100}"
+  SUMMARY_WIDTH="${SUMMARY_WIDTH:-72}"
+}
 
 # Enable colors only when stdout is an interactive terminal. Set FORCE_COLOR=1
 # to keep colors when piping, or NO_COLOR=1 to disable them explicitly.
@@ -36,23 +60,56 @@ fi
 usage() {
   cat <<USAGE
 Usage:
-  $PROGRAM_NAME [--mine | --team | --member NICKNAME]
+  $PROGRAM_NAME <command> [options]
+
+Commands:
+  list       Show the team issue dashboard
+  view       Show a single issue, or pick one interactively
+  open       Open an issue in your browser
+  members    List configured nickname -> Jira user mappings
+
+Run '$PROGRAM_NAME <command> --help' for command-specific options.
+
+Global:
+  --version            Print script version and exit
+  -h, --help           Show this help
+
+Config file (defaults: ~/.config/jira/jira.yaml):
+  url, username, api_token, api_version, page_size, summary_width,
+  team_members  -- see config/jira/jira.yaml.example
+
+Environment (overrides the config file):
+  JIRA_CONFIG_FILE     path to the YAML config file
+  JIRA_URL             e.g. https://example.atlassian.net
+  JIRA_USERNAME        Jira login email/username
+  JIRA_API_TOKEN       Jira API token/password
+  JIRA_API_VERSION     REST API version; default: 2
+  JIRA_PAGE_SIZE       issues fetched per request; default: 100
+  JIRA_SUMMARY_WIDTH   maximum summary length; default: 72
+  NO_COLOR             set to 1 to disable ANSI colors
+  FORCE_COLOR          set to 1 to force colors in dashboard mode
+USAGE
+}
+
+usage_list() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME list [--mine | --team | --member NICKNAME]
                 [--sprint SPRINT] [--project KEY] [--jql JQL]
                 [--summary-only] [--watch SECONDS]
                 [--plain | --dashboard]
 
 Examples:
-  $PROGRAM_NAME --mine
-  $PROGRAM_NAME --team
-  $PROGRAM_NAME --member alice
-  $PROGRAM_NAME --member alice --member bob
-  $PROGRAM_NAME --member alice,bob --sprint 'Sprint 42'
-  $PROGRAM_NAME --team --sprint 1234
-  $PROGRAM_NAME --team --project HDFS
-  $PROGRAM_NAME --team --jql 'priority in (Highest, High)'
-  $PROGRAM_NAME --team --watch 60
-  $PROGRAM_NAME --team --plain | grep HDFS
-  $PROGRAM_NAME --team | awk -F '\t' '$3 == "In Progress"'
+  $PROGRAM_NAME list --mine
+  $PROGRAM_NAME list --team
+  $PROGRAM_NAME list --member alice
+  $PROGRAM_NAME list --member alice --member bob
+  $PROGRAM_NAME list --member alice,bob --sprint 'Sprint 42'
+  $PROGRAM_NAME list --team --sprint 1234
+  $PROGRAM_NAME list --team --project HDFS
+  $PROGRAM_NAME list --team --jql 'priority in (Highest, High)'
+  $PROGRAM_NAME list --team --watch 60
+  $PROGRAM_NAME list --team --plain | grep HDFS
 
 Filters:
   --mine               Only issues assigned to currentUser()
@@ -62,6 +119,8 @@ Filters:
   --sprint SPRINT      Filter by sprint name or numeric sprint ID
   --project KEY        Filter by Jira project key
   --jql JQL            Add an arbitrary JQL expression
+
+Display:
   --summary-only       Hide the detailed issue table
   --watch SECONDS      Continuously refresh the dashboard
   --plain, --script,
@@ -69,21 +128,48 @@ Filters:
                        banner, headings, summaries, borders, or colors.
   --dashboard          Force the full dashboard when stdout is piped or
                        redirected. By default, non-terminal output is TSV.
-  --list-members       Print configured nickname mappings and exit
-  --version            Print script version and exit
-
-Environment:
-  JIRA_URL             e.g. https://example.atlassian.net
-  JIRA_USERNAME        Jira login email/username
-  JIRA_API_TOKEN       Jira API token/password
-  JIRA_API_VERSION     REST API version; default: 2
-  JIRA_PAGE_SIZE       issues fetched per request; default: 100
-  JIRA_SUMMARY_WIDTH   maximum summary length; default: 72
-  NO_COLOR             set to 1 to disable ANSI colors
-  FORCE_COLOR          set to 1 to force colors in dashboard mode
 
 Plain TSV fields:
   assignee, key, status, priority, updated, summary
+USAGE
+}
+
+usage_view() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME view [ISSUE_KEY]
+
+Show a single Jira issue: summary, status, labels, description, and
+subtasks. With no ISSUE_KEY, lists your own unresolved issues and lets you
+pick one interactively (gum filter if installed and colors are on, fzf
+otherwise).
+
+Examples:
+  $PROGRAM_NAME view
+  $PROGRAM_NAME view ABC-123
+USAGE
+}
+
+usage_open() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME open [ISSUE_KEY]
+
+Opens the issue in your browser instead of printing it. With no ISSUE_KEY,
+uses the same interactive picker as 'view'.
+
+Examples:
+  $PROGRAM_NAME open
+  $PROGRAM_NAME open ABC-123
+USAGE
+}
+
+usage_members() {
+  cat <<USAGE
+Usage:
+  $PROGRAM_NAME members
+
+Prints configured nickname -> Jira user mappings and exits.
 USAGE
 }
 
@@ -98,6 +184,22 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
+}
+
+use_gum() {
+  (( USE_COLOR == 1 )) && command -v gum >/dev/null 2>&1
+}
+
+open_url() {
+  local url=$1
+
+  if command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url"
+  else
+    printf '%s\n' "$url"
+  fi
 }
 
 # Run "$@" with a gum spinner when gum is installed and output is an
@@ -389,7 +491,7 @@ build_assignee_clause() {
   if [[ "$mode" == "members" ]]; then
     for nickname in "${SELECTED_MEMBERS[@]}"; do
       user=$(member_username "$nickname") || \
-        fail "Unknown team member nickname: $nickname. Use --list-members to see valid nicknames."
+        fail "Unknown team member nickname: $nickname. Use 'members' to see valid nicknames."
 
       if [[ "$user" == "currentUser()" ]]; then
         operand='currentUser()'
@@ -464,6 +566,73 @@ fetch_issues() {
   done
 }
 
+# TSV of the current user's unresolved issues: key, status, summary.
+list_my_issues() {
+  curl -fsS -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
+    -G "${JIRA_URL%/}/rest/api/${JIRA_API_VERSION}/search" \
+    --data-urlencode 'jql=assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC' \
+    --data-urlencode 'fields=key,summary,status' \
+    --data-urlencode 'maxResults=100' \
+  | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv'
+}
+
+pick_issue_key() {
+  local issues
+  issues=$(list_my_issues) || fail 'Unable to fetch your Jira issues'
+  [[ -n "$issues" ]] || fail 'No unresolved Jira issues assigned to you'
+
+  if use_gum; then
+    column -ts $'\t' <<<"$issues" \
+      | gum filter --placeholder 'Choose Jira issue…' --height 15 --header 'Choose Jira' \
+      | awk '{print $1}'
+  else
+    require_command fzf
+    column -ts $'\t' <<<"$issues" \
+      | fzf --border=rounded --no-sort --height 50% --reverse --header='Choose Jira' \
+      | awk '{print $1}'
+  fi
+}
+
+print_issue() {
+  local details=$1
+  local key summary issue_status labels description subtasks
+
+  key=$(jq -r '.key' <<<"$details")
+  summary=$(jq -r '.fields.summary // "-"' <<<"$details")
+  issue_status=$(jq -r '.fields.status.name // "-"' <<<"$details")
+  labels=$(jq -r '(.fields.labels // []) | join(", ")' <<<"$details")
+  labels=${labels:-none}
+  description=$(jq -r '.fields.description // "No description."' <<<"$details")
+  subtasks=$(jq -r '.fields.subtasks[]? | [.key, .fields.summary] | @tsv' <<<"$details")
+
+  if use_gum; then
+    gum style --border rounded --border-foreground 212 --padding '0 2' \
+      "$(gum style --bold --foreground 212 "$key")  $(gum style --faint "[$issue_status]")" \
+      "$summary" \
+      "$(gum style --faint "Labels: $labels")"
+
+    echo
+    gum style --bold --underline --foreground 212 'Description'
+    printf '%s\n' "$description"
+
+    if [[ -n "$subtasks" ]]; then
+      echo
+      gum style --bold --underline --foreground 212 'Subtasks'
+      gum table --print --separator $'\t' --columns 'Key,Summary' <<<"$subtasks"
+    fi
+  else
+    printf -- '-------------------------------------------\n'
+    printf 'ID       %s\n' "$key"
+    printf 'Status   %s\n' "$issue_status"
+    printf 'Summary  %s\n' "$summary"
+    printf 'Labels   %s\n' "$labels"
+    printf '\nDescription\n%s\n' "$description"
+    if [[ -n "$subtasks" ]]; then
+      printf '\nSubtasks\n%s\n' "$subtasks"
+    fi
+    printf -- '-------------------------------------------\n'
+  fi
+}
 
 print_plain_issues() {
   local issues_file=$1
@@ -601,14 +770,13 @@ render_once() {
   trap - RETURN
 }
 
-main() {
+cmd_list() {
   local mode='team'
   local project=''
   local sprint=''
   local extra_jql=''
   local summary_only=0
   local watch_seconds=0
-  local show_members=0
   local output_mode=auto
   local plain_mode=0
 
@@ -659,15 +827,8 @@ main() {
         [[ "$watch_seconds" =~ ^[1-9][0-9]*$ ]] || fail '--watch must be a positive integer'
         shift
         ;;
-      --list-members)
-        show_members=1
-        ;;
-      --version)
-        printf 'jira-dashboard %s\n' "$SCRIPT_VERSION"
-        exit 0
-        ;;
       -h|--help)
-        usage
+        usage_list
         exit 0
         ;;
       *)
@@ -680,6 +841,9 @@ main() {
   require_command curl
   require_command jq
   require_command awk
+  require_command yq
+
+  load_config
 
   case "$output_mode" in
     plain) plain_mode=1 ;;
@@ -697,18 +861,13 @@ main() {
     fail '--watch requires dashboard output; add --dashboard or remove --watch'
   fi
 
-  if (( show_members == 1 )); then
-    list_members
-    exit 0
-  fi
-
   if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
     fail '--member requires at least one nickname'
   fi
 
-  : "${JIRA_URL:?Set JIRA_URL}"
-  : "${JIRA_USERNAME:?Set JIRA_USERNAME}"
-  : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN}"
+  : "${JIRA_URL:?Set JIRA_URL or configure 'url' in $JIRA_CONFIG_FILE (see config/jira/jira.yaml.example)}"
+  : "${JIRA_USERNAME:?Set JIRA_USERNAME or configure 'username' in $JIRA_CONFIG_FILE}"
+  : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN or configure 'api_token' in $JIRA_CONFIG_FILE}"
 
   if (( watch_seconds > 0 )); then
     while :; do
@@ -724,6 +883,131 @@ main() {
   else
     render_once "$mode" "$project" "$sprint" "$extra_jql" "$summary_only" "$plain_mode"
   fi
+}
+
+cmd_members() {
+  case "${1:-}" in
+    -h|--help)
+      usage_members
+      exit 0
+      ;;
+  esac
+
+  require_command curl
+  require_command jq
+  require_command yq
+
+  load_config
+  list_members
+}
+
+cmd_view() {
+  case "${1:-}" in
+    -h|--help)
+      usage_view
+      exit 0
+      ;;
+  esac
+
+  require_command curl
+  require_command jq
+  require_command yq
+
+  load_config
+
+  : "${JIRA_URL:?Set JIRA_URL or configure 'url' in $JIRA_CONFIG_FILE (see config/jira/jira.yaml.example)}"
+  : "${JIRA_USERNAME:?Set JIRA_USERNAME or configure 'username' in $JIRA_CONFIG_FILE}"
+  : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN or configure 'api_token' in $JIRA_CONFIG_FILE}"
+
+  local jira_key=${1:-}
+
+  if [[ -z "$jira_key" ]]; then
+    require_command awk
+    require_command column
+    jira_key=$(pick_issue_key)
+  fi
+
+  [[ -n "$jira_key" ]] || exit 0
+
+  local details
+  details=$(
+    curl -fsS -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
+      "${JIRA_URL%/}/rest/api/${JIRA_API_VERSION}/issue/${jira_key}?fields=summary,status,labels,description,subtasks"
+  ) || fail "Jira request failed for issue $jira_key"
+
+  jq -e . >/dev/null 2>&1 <<<"$details" || fail 'Jira returned invalid JSON'
+
+  if jq -e 'has("errorMessages")' >/dev/null <<<"$details"; then
+    jq -r '.errorMessages[]?' <<<"$details" >&2
+    exit 1
+  fi
+
+  print_issue "$details"
+}
+
+cmd_open() {
+  case "${1:-}" in
+    -h|--help)
+      usage_open
+      exit 0
+      ;;
+  esac
+
+  require_command curl
+  require_command jq
+  require_command yq
+
+  load_config
+
+  : "${JIRA_URL:?Set JIRA_URL or configure 'url' in $JIRA_CONFIG_FILE (see config/jira/jira.yaml.example)}"
+  : "${JIRA_USERNAME:?Set JIRA_USERNAME or configure 'username' in $JIRA_CONFIG_FILE}"
+  : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN or configure 'api_token' in $JIRA_CONFIG_FILE}"
+
+  local jira_key=${1:-}
+
+  if [[ -z "$jira_key" ]]; then
+    require_command awk
+    require_command column
+    jira_key=$(pick_issue_key)
+  fi
+
+  [[ -n "$jira_key" ]] || exit 0
+
+  open_url "${JIRA_URL%/}/browse/${jira_key}"
+}
+
+main() {
+  local command=${1:-}
+
+  case "$command" in
+    ''|-h|--help)
+      usage
+      exit 0
+      ;;
+    --version)
+      printf '%s %s\n' "$PROGRAM_NAME" "$SCRIPT_VERSION"
+      exit 0
+      ;;
+    list)
+      shift
+      cmd_list "$@"
+      ;;
+    view)
+      shift
+      cmd_view "$@"
+      ;;
+    open)
+      shift
+      cmd_open "$@"
+      ;;
+    members)
+      shift
+      cmd_members "$@"
+      ;;
+    *)
+      fail "Unknown command: $command (see --help)"
+      ;;
+  esac
 }
 
 main "$@"
