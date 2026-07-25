@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Global launcher: fuzzy-picks a command by alias from a predefined list
+# and prints the resolved command to stdout. Deliberately does not execute
+# anything itself - callers (the zsh Ctrl+g widget, the tmux prefix+g
+# binding) are responsible for pasting the result into the terminal so the
+# user can review/edit it before running.
+
+set -u
+
+PROGRAM_NAME=${0##*/}
+# Tracked list, read straight from the repo (not a symlinked path).
+COMMANDS_FILE="${LAUNCHER_COMMANDS_FILE:-$HOME/.dotfiles/config/launcher/commands}"
+# Machine-local, untracked additions - lives outside the repo entirely.
+LOCAL_COMMANDS_FILE="${LAUNCHER_LOCAL_COMMANDS_FILE:-$HOME/.config/launcher/commands.local}"
+
+fail() {
+  echo "${PROGRAM_NAME}: $*" >&2
+  exit 1
+}
+
+[ -f "$COMMANDS_FILE" ] || fail "commands file not found: $COMMANDS_FILE"
+command -v fzf >/dev/null 2>&1 || fail "'fzf' is required but not found in PATH"
+
+pick() {
+  local opts=(
+    --delimiter '|' --with-nth={1} --prompt "launch> "
+    --border-label ' launcher '
+    --preview 'echo {} | cut -d"|" -f2-' --preview-window 'down,1,wrap'
+  )
+  if [ -n "${TMUX:-}" ] && command -v fzf-tmux >/dev/null 2>&1; then
+    fzf-tmux -p 60%,20% --reverse "${opts[@]}"
+  else
+    fzf --margin=0,40 --height 20% --reverse "${opts[@]}"
+  fi
+}
+
+selected=$(cat "$COMMANDS_FILE" "$LOCAL_COMMANDS_FILE" 2>/dev/null | grep -Ev '^[[:space:]]*(#|$)' | pick)
+[ -n "$selected" ] || exit 0
+
+printf '%s\n' "${selected#*|}"

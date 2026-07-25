@@ -137,30 +137,45 @@ USAGE
 usage_view() {
   cat <<USAGE
 Usage:
-  $PROGRAM_NAME view [ISSUE_KEY]
+  $PROGRAM_NAME view [ISSUE_KEY] [--mine | --team | --member NICKNAME]
+                [--sprint SPRINT] [--project KEY] [--jql JQL]
 
 Show a single Jira issue: summary, status, labels, description, and
-subtasks. With no ISSUE_KEY, lists your own unresolved issues and lets you
+subtasks. With ISSUE_KEY, shows that issue directly. Without it, fetches
+issues matching the filters below (same defaults as 'list') and lets you
 pick one interactively (gum filter if installed and colors are on, fzf
 otherwise).
 
 Examples:
   $PROGRAM_NAME view
   $PROGRAM_NAME view ABC-123
+  $PROGRAM_NAME view --mine
+  $PROGRAM_NAME view --team --project HDFS
+
+Filters (same defaults as 'list'; ignored when ISSUE_KEY is given):
+  --mine, --team, --member NICKNAME
+  --sprint SPRINT, --project KEY, --jql JQL
 USAGE
 }
 
 usage_open() {
   cat <<USAGE
 Usage:
-  $PROGRAM_NAME open [ISSUE_KEY]
+  $PROGRAM_NAME open [ISSUE_KEY] [--mine | --team | --member NICKNAME]
+                [--sprint SPRINT] [--project KEY] [--jql JQL]
 
-Opens the issue in your browser instead of printing it. With no ISSUE_KEY,
-uses the same interactive picker as 'view'.
+Opens the issue in your browser instead of printing it. With ISSUE_KEY,
+opens that issue directly. Without it, uses the same interactive picker as
+'view', scoped by the filters below (same defaults as 'list').
 
 Examples:
   $PROGRAM_NAME open
   $PROGRAM_NAME open ABC-123
+  $PROGRAM_NAME open --mine
+
+Filters (same defaults as 'list'; ignored when ISSUE_KEY is given):
+  --mine, --team, --member NICKNAME
+  --sprint SPRINT, --project KEY, --jql JQL
 USAGE
 }
 
@@ -566,20 +581,49 @@ fetch_issues() {
   done
 }
 
-# TSV of the current user's unresolved issues: key, status, summary.
-list_my_issues() {
-  curl -fsS -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
-    -G "${JIRA_URL%/}/rest/api/${JIRA_API_VERSION}/search" \
-    --data-urlencode 'jql=assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC' \
-    --data-urlencode 'fields=key,summary,status' \
-    --data-urlencode 'maxResults=100' \
-  | jq -r '.issues[] | [.key, .fields.status.name, .fields.summary] | @tsv'
+build_list_jql() {
+  local mode=$1
+  local project=$2
+  local sprint=$3
+  local extra_jql=$4
+  local assignee_clause jql
+
+  assignee_clause=$(build_assignee_clause "$mode") || fail 'Unable to build assignee filter'
+  jql="$assignee_clause AND resolution = Unresolved"
+
+  if [[ -n "$project" ]]; then
+    jql+=" AND project = $(jql_quote "$project")"
+  fi
+
+  if [[ -n "$sprint" ]]; then
+    jql+=" AND sprint = $(jql_name_or_numeric_id "$sprint")"
+  fi
+
+  if [[ -n "$extra_jql" ]]; then
+    jql+=" AND ($extra_jql)"
+  fi
+
+  jql+=' ORDER BY assignee ASC, updated DESC'
+
+  printf '%s' "$jql"
 }
 
+# TSV of issues matching $jql: key, status, summary.
 pick_issue_key() {
-  local issues
-  issues=$(list_my_issues) || fail 'Unable to fetch your Jira issues'
-  [[ -n "$issues" ]] || fail 'No unresolved Jira issues assigned to you'
+  local jql=$1
+  local tmp_file issues
+
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/jira-picker.XXXXXX") || fail 'Unable to create temporary file'
+  run_with_spinner 'Fetching Jira issues…' fetch_issues "$jql" "$tmp_file" || fail 'Jira search failed'
+
+  issues=$(jq -sr '
+    sort_by(.fields.updated) | reverse[]
+    | [.key, (.fields.status.name // "-"), ((.fields.summary // "") | gsub("[\\r\\n\\t]+"; " "))]
+    | @tsv
+  ' "$tmp_file")
+  rm -f "$tmp_file"
+
+  [[ -n "$issues" ]] || fail 'No matching Jira issues'
 
   if use_gum; then
     column -ts $'\t' <<<"$issues" \
@@ -742,27 +786,12 @@ render_once() {
   local extra_jql=$4
   local summary_only=$5
   local plain_mode=$6
-  local tmp_file assignee_clause jql
+  local tmp_file jql
 
   tmp_file=$(mktemp "${TMPDIR:-/tmp}/jira-dashboard.XXXXXX") || fail 'Unable to create temporary file'
   trap 'rm -f "$tmp_file"' RETURN
 
-  assignee_clause=$(build_assignee_clause "$mode") || fail 'Unable to build assignee filter'
-  jql="$assignee_clause AND resolution = Unresolved"
-
-  if [[ -n "$project" ]]; then
-    jql+=" AND project = $(jql_quote "$project")"
-  fi
-
-  if [[ -n "$sprint" ]]; then
-    jql+=" AND sprint = $(jql_name_or_numeric_id "$sprint")"
-  fi
-
-  if [[ -n "$extra_jql" ]]; then
-    jql+=" AND ($extra_jql)"
-  fi
-
-  jql+=' ORDER BY assignee ASC, updated DESC'
+  jql=$(build_list_jql "$mode" "$project" "$sprint" "$extra_jql")
 
   run_with_spinner 'Fetching Jira issues…' fetch_issues "$jql" "$tmp_file" || fail 'Jira search failed'
   print_dashboard "$tmp_file" "$summary_only" "$plain_mode"
@@ -902,12 +931,58 @@ cmd_members() {
 }
 
 cmd_view() {
-  case "${1:-}" in
-    -h|--help)
-      usage_view
-      exit 0
-      ;;
-  esac
+  local mode='team'
+  local project=''
+  local sprint=''
+  local extra_jql=''
+  local jira_key=''
+
+  # Global for compatibility with Bash 3.2, which remains common on macOS.
+  SELECTED_MEMBERS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --mine)
+        mode='mine'
+        ;;
+      --team)
+        mode='team'
+        ;;
+      --member|--team-member)
+        (( $# >= 2 )) || fail "$1 requires a nickname"
+        mode='members'
+        parse_member_argument "$2"
+        shift
+        ;;
+      --sprint)
+        (( $# >= 2 )) || fail '--sprint requires a sprint name or ID'
+        sprint=$2
+        shift
+        ;;
+      --project)
+        (( $# >= 2 )) || fail '--project requires a value'
+        project=$2
+        shift
+        ;;
+      --jql)
+        (( $# >= 2 )) || fail '--jql requires a value'
+        extra_jql=$2
+        shift
+        ;;
+      -h|--help)
+        usage_view
+        exit 0
+        ;;
+      -*)
+        fail "Unknown option: $1"
+        ;;
+      *)
+        [[ -z "$jira_key" ]] || fail 'Only one ISSUE_KEY may be specified'
+        jira_key=$1
+        ;;
+    esac
+    shift
+  done
 
   require_command curl
   require_command jq
@@ -915,16 +990,18 @@ cmd_view() {
 
   load_config
 
+  if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
+    fail '--member requires at least one nickname'
+  fi
+
   : "${JIRA_URL:?Set JIRA_URL or configure 'url' in $JIRA_CONFIG_FILE (see config/jira/jira.yaml.example)}"
   : "${JIRA_USERNAME:?Set JIRA_USERNAME or configure 'username' in $JIRA_CONFIG_FILE}"
   : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN or configure 'api_token' in $JIRA_CONFIG_FILE}"
 
-  local jira_key=${1:-}
-
   if [[ -z "$jira_key" ]]; then
     require_command awk
     require_command column
-    jira_key=$(pick_issue_key)
+    jira_key=$(pick_issue_key "$(build_list_jql "$mode" "$project" "$sprint" "$extra_jql")")
   fi
 
   [[ -n "$jira_key" ]] || exit 0
@@ -946,12 +1023,58 @@ cmd_view() {
 }
 
 cmd_open() {
-  case "${1:-}" in
-    -h|--help)
-      usage_open
-      exit 0
-      ;;
-  esac
+  local mode='team'
+  local project=''
+  local sprint=''
+  local extra_jql=''
+  local jira_key=''
+
+  # Global for compatibility with Bash 3.2, which remains common on macOS.
+  SELECTED_MEMBERS=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --mine)
+        mode='mine'
+        ;;
+      --team)
+        mode='team'
+        ;;
+      --member|--team-member)
+        (( $# >= 2 )) || fail "$1 requires a nickname"
+        mode='members'
+        parse_member_argument "$2"
+        shift
+        ;;
+      --sprint)
+        (( $# >= 2 )) || fail '--sprint requires a sprint name or ID'
+        sprint=$2
+        shift
+        ;;
+      --project)
+        (( $# >= 2 )) || fail '--project requires a value'
+        project=$2
+        shift
+        ;;
+      --jql)
+        (( $# >= 2 )) || fail '--jql requires a value'
+        extra_jql=$2
+        shift
+        ;;
+      -h|--help)
+        usage_open
+        exit 0
+        ;;
+      -*)
+        fail "Unknown option: $1"
+        ;;
+      *)
+        [[ -z "$jira_key" ]] || fail 'Only one ISSUE_KEY may be specified'
+        jira_key=$1
+        ;;
+    esac
+    shift
+  done
 
   require_command curl
   require_command jq
@@ -959,16 +1082,18 @@ cmd_open() {
 
   load_config
 
+  if [[ "$mode" == "members" && -z "${SELECTED_MEMBERS[0]+set}" ]]; then
+    fail '--member requires at least one nickname'
+  fi
+
   : "${JIRA_URL:?Set JIRA_URL or configure 'url' in $JIRA_CONFIG_FILE (see config/jira/jira.yaml.example)}"
   : "${JIRA_USERNAME:?Set JIRA_USERNAME or configure 'username' in $JIRA_CONFIG_FILE}"
   : "${JIRA_API_TOKEN:?Set JIRA_API_TOKEN or configure 'api_token' in $JIRA_CONFIG_FILE}"
 
-  local jira_key=${1:-}
-
   if [[ -z "$jira_key" ]]; then
     require_command awk
     require_command column
-    jira_key=$(pick_issue_key)
+    jira_key=$(pick_issue_key "$(build_list_jql "$mode" "$project" "$sprint" "$extra_jql")")
   fi
 
   [[ -n "$jira_key" ]] || exit 0

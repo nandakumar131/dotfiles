@@ -1,0 +1,82 @@
+#compdef pagerduty
+
+_pagerduty_members() {
+  local config_file="${PAGERDUTY_CONFIG_FILE:-$HOME/.config/pagerduty/pagerduty.yaml}"
+  [[ -f "$config_file" ]] || return 1
+  command -v yq >/dev/null 2>&1 || return 1
+  local -a nicknames
+  nicknames=(${(f)"$(yq eval '.team_members | keys | .[]' "$config_file" 2>/dev/null)"})
+  (( ${#nicknames} )) && _describe -t members 'nickname' nicknames
+}
+
+_pagerduty_filters() {
+  _arguments \
+    '--mine[incidents assigned to you]' \
+    '--team[incidents assigned to all configured members]' \
+    '*--member[select a configured nickname]:nickname:_pagerduty_members' \
+    '*--status[active, triggered, or acknowledged]:status:(active triggered acknowledged)' \
+    '*--urgency[high or low]:urgency:(high low)' \
+    '*--service-id[filter by PagerDuty service ID]:service id' \
+    '*--team-id[filter by PagerDuty team ID]:team id'
+}
+
+_pagerduty() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[show help]' \
+    '--version[print script version]' \
+    '1: :->command' \
+    '*:: :->args'
+
+  case $state in
+    command)
+      local -a commands=(
+        'list:show the incident dashboard'
+        'oncall:show the current on-call schedule'
+        'ack:acknowledge incidents'
+        'open:open an incident in your browser'
+        'members:list configured nickname -> PagerDuty user ID mappings'
+      )
+      _describe -t commands 'pagerduty command' commands
+      ;;
+    args)
+      case ${line[1]} in
+        list)
+          _arguments \
+            '--since[start of incident creation range]:ISO8601 timestamp' \
+            '--until[end of incident creation range]:ISO8601 timestamp' \
+            '--summary-only[hide the detailed incident table]' \
+            '--watch[continuously refresh the dashboard]:seconds' \
+            '(--dashboard)'{--plain,--script,--tsv}'[emit tab-separated values only]' \
+            '(--plain --script --tsv)--dashboard[force the full dashboard]' \
+            '*: :_pagerduty_filters'
+          ;;
+        oncall)
+          _arguments \
+            '*--escalation-policy-id[filter by escalation policy ID]:escalation policy id' \
+            '*--schedule-id[filter by schedule ID]:schedule id' \
+            '--team-id[filter by PagerDuty team ID]:team id' \
+            '--all-levels[show every escalation level]' \
+            '--watch[continuously refresh the schedule]:seconds' \
+            '(--dashboard)'{--plain,--script,--tsv}'[emit tab-separated values only]' \
+            '(--plain --script --tsv)--dashboard[force the full dashboard]'
+          ;;
+        ack)
+          _arguments \
+            '1:incident number' \
+            '*: :_pagerduty_filters'
+          ;;
+        open)
+          _arguments \
+            '*: :_pagerduty_filters'
+          ;;
+        members)
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_pagerduty "$@"

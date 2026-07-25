@@ -1,0 +1,12 @@
+# Global launcher command list: "alias|command" per line.
+# The alias is shown in the fuzzy picker; the command is pasted to the
+# terminal (not executed) when selected. Lines starting with # are ignored.
+# The alias must not contain a literal "|" - the command can. Icons are
+# just plain characters at the start of the alias - add your own to taste.
+
+ tmux sessions|sesh connect "$(sesh list -t | fzf --margin=0,40 --height 20%)"
+ my jiras|jira list --mine
+ open jira|jira open
+ jira dashboard|jira list --sprint "Core Storage Infra Blr H126-7"
+ open pagerduty|pagerduty open --urgency high
+ on-call who|pd oncall

@@ -1,0 +1,64 @@
+#compdef jira
+
+_jira_members() {
+  local config_file="${JIRA_CONFIG_FILE:-$HOME/.config/jira/jira.yaml}"
+  [[ -f "$config_file" ]] || return 1
+  command -v yq >/dev/null 2>&1 || return 1
+  local -a nicknames
+  nicknames=(${(f)"$(yq eval '.team_members | keys | .[]' "$config_file" 2>/dev/null)"})
+  (( ${#nicknames} )) && _describe -t members 'nickname' nicknames
+}
+
+_jira_filters() {
+  _arguments \
+    '--mine[only issues assigned to you]' \
+    '--team[issues for everyone in team_members]' \
+    '*--member[filter by nickname]:nickname:_jira_members' \
+    '--sprint[filter by sprint name or ID]:sprint' \
+    '--project[filter by Jira project key]:project key' \
+    '--jql[arbitrary JQL expression]:JQL'
+}
+
+_jira() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[show help]' \
+    '--version[print script version]' \
+    '1: :->command' \
+    '*:: :->args'
+
+  case $state in
+    command)
+      local -a commands=(
+        'list:show the team issue dashboard'
+        'view:show a single issue, or pick one interactively'
+        'open:open an issue in your browser'
+        'members:list configured nickname -> Jira user mappings'
+      )
+      _describe -t commands 'jira command' commands
+      ;;
+    args)
+      case ${line[1]} in
+        list)
+          _arguments \
+            '--summary-only[hide the detailed issue table]' \
+            '--watch[continuously refresh the dashboard]:seconds' \
+            '(--dashboard)'{--plain,--script,--tsv}'[emit tab-separated values only]' \
+            '(--plain --script --tsv)--dashboard[force the full dashboard]' \
+            '*: :_jira_filters'
+          ;;
+        view|open)
+          _arguments \
+            '1:issue key' \
+            '*: :_jira_filters'
+          ;;
+        members)
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_jira "$@"

@@ -58,6 +58,14 @@ seeds `tldr`'s cache.
 set up manually if you use it. `bin/*.sh` (aliased as `jd`, `ji`, `pd`) are
 small personal Jira/PagerDuty dashboard and lookup scripts.
 
+`bin/launcher` is a global command launcher: `config/launcher/commands`
+(read directly from `~/.dotfiles`, not symlinked) lists `alias|command`
+pairs, and `Ctrl+g` (zsh, works whether or not you're in tmux) / `prefix+g`
+(tmux, works even when the focused pane isn't at a shell prompt)
+fuzzy-picks one by alias and pastes the resolved command into the terminal
+without running it. `~/.config/launcher/commands.local` is read too if
+present, for machine-local entries you don't want tracked.
+
 ## Machine-local overrides
 
 Not tracked by this repo, sourced automatically if present:

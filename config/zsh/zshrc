@@ -9,9 +9,9 @@ export PATH="${HOME}/.dotfiles/bin:${PATH}"
 [ -f ~/.dotfiles/config/zsh/functions ] && source ~/.dotfiles/config/zsh/functions
 
 # machine-local overrides/extras
-[ -f ~/.zshrc.local ] && source ~/.zshrc.local
-[ -f ~/.alias.local ] && source ~/.alias.local
-[ -f ~/.functions.local ] && source ~/.functions.local
+[ -f ~/.config/dotfiles/zshrc.local ] && source ~/.config/dotfiles/zshrc.local
+[ -f ~/.config/dotfiles/alias.local ] && source ~/.config/dotfiles/alias.local
+[ -f ~/.config/dotfiles/functions.local ] && source ~/.config/dotfiles/functions.local
 
 # Homebrew prefix if present (macOS or Linuxbrew); empty otherwise so the
 # path lookups below just fall through to the plain Linux package paths.
@@ -80,7 +80,7 @@ else
 	export EDITOR='vi'
 fi
 
-export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle'
+export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc --color=marker:#f5e0dc,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 --color=selected-bg:#45475a --color=border:#313244,label:#cdd6f4'
 
 if command -v fd >/dev/null 2>&1; then
 	export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
@@ -118,6 +118,25 @@ bindkey "^[[B" history-search-forward
 bindkey "^o" kill-line
 bindkey "^u" backward-kill-line
 bindkey "^b" backward-word
+
+# global launcher (bin/launcher): same idiom as fzf's own ctrl-r/ctrl-t
+# widgets - it only ever runs fzf (well-behaved, cleans up after itself).
+# On a selection, run it exactly like a typed command + Enter (accept-line)
+# rather than executing it inside this widget - matters because zle's own
+# redisplay can't track output written behind its back, which previously
+# clobbered command output when done the naive way.
+launcher-widget() {
+	local cmd
+	cmd=$(launcher </dev/tty)
+	if [ -n "$cmd" ]; then
+		BUFFER="$cmd"
+		zle accept-line
+	else
+		zle reset-prompt
+	fi
+}
+zle -N launcher-widget
+bindkey "^g" launcher-widget
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
