@@ -4,7 +4,6 @@
 # The alias must not contain a literal "|" - the command can. Icons are
 # just plain characters at the start of the alias - add your own to taste.
 
- tmux sessions|sesh connect "$(sesh list -t | fzf --margin=0,40 --height 20%)"
  my jiras|jira list --mine
  open jira|jira open
  jira dashboard|jira list --sprint "Core Storage Infra Blr H126-7"

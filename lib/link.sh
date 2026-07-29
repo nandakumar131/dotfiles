@@ -14,6 +14,7 @@ LINK_SRC=(
 	"config/tmux/tmux.conf"
 	"config/starship/starship_hyprland.toml"
 	"config/nvim/lua/config/options.lua"
+	"config/nvim/lua/plugins/tmux.lua"
 	"config/nvim/lua/plugins/colorscheme.lua"
 )
 LINK_DEST=(
@@ -24,6 +25,7 @@ LINK_DEST=(
 	"${HOME}/.config/tmux/tmux.conf"
 	"${HOME}/.config/starship.toml"
 	"${HOME}/.config/nvim/lua/config/options.lua"
+	"${HOME}/.config/nvim/lua/plugins/tmux.lua"
 	"${HOME}/.config/nvim/lua/plugins/colorscheme.lua"
 )
 
