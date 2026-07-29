@@ -1,0 +1,4 @@
+# Packages installed via `git clone` rather than a package manager.
+# Format: name|destination directory|repo url
+tpm|~/.config/tmux/plugins/tpm|https://github.com/tmux-plugins/tpm.git
+lazyvim|~/.config/nvim|https://github.com/LazyVim/starter

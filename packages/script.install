@@ -1,0 +1,3 @@
+# Packages installed via their own install script rather than a package manager.
+# Format: name|destination directory|install command
+sdkman|~/.sdkman|curl -s "https://get.sdkman.io" | bash

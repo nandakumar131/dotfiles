@@ -81,10 +81,3 @@ mouse.enabled = true
 command = "open"
 binding = { key = "O", mods = "Shift|Control" }
 regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩`]+"
-
-[[hints.enabled]]
-mouse.enabled = true
-post_processing = true 
-command={ program = "/Users/nvadivelu/Tools/scripts/open-github-pr.sh" }
-binding = { key = "J", mods = "Shift|Control" }
-regex = "#[0-9]+"

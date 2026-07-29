@@ -22,6 +22,32 @@ install_homebrew_if_missing() {
 	fi
 }
 
+install_git_packages() {
+	local file="$1"
+	local name dest repo
+	while IFS='|' read -r name dest repo; do
+		[[ -z "$name" || "$name" == \#* ]] && continue
+		dest="${dest/#\~/$HOME}"
+		if [ ! -d "$dest" ]; then
+			echo "installing ${name}..."
+			git clone "$repo" "$dest" || echo "! ${name} install failed" >&2
+		fi
+	done < "$file"
+}
+
+install_script_packages() {
+	local file="$1"
+	local name dest cmd
+	while IFS='|' read -r name dest cmd; do
+		[[ -z "$name" || "$name" == \#* ]] && continue
+		dest="${dest/#\~/$HOME}"
+		if [ ! -d "$dest" ]; then
+			echo "installing ${name}..."
+			eval "$cmd" || echo "! ${name} install failed" >&2
+		fi
+	done < "$file"
+}
+
 install_packages() {
 	install_homebrew_if_missing
 	if ! command -v brew >/dev/null 2>&1; then
@@ -29,15 +55,14 @@ install_packages() {
 		return
 	fi
 
-	brew bundle --file="${SCRIPT_DIR}/config/brew/Brewfile" || echo "! some packages from Brewfile failed to install" >&2
+	brew bundle --file="${SCRIPT_DIR}/packages/Brewfile" || echo "! some packages from Brewfile failed to install" >&2
 
 	if [ "$OS" = "Darwin" ]; then
-		brew bundle --file="${SCRIPT_DIR}/config/brew/Brewfile.mac" || echo "! some casks from Brewfile.mac failed to install" >&2
+		brew bundle --file="${SCRIPT_DIR}/packages/Brewfile.mac" || echo "! some casks from Brewfile.mac failed to install" >&2
 	fi
 
-	if [ ! -d "${HOME}/.sdkman" ]; then
-		curl -s "https://get.sdkman.io" | bash || echo "! sdkman install failed" >&2
-	fi
+	install_script_packages "${SCRIPT_DIR}/packages/script.install"
+	install_git_packages "${SCRIPT_DIR}/packages/git.install"
 }
 
 install_packages

@@ -21,7 +21,7 @@ This clones the repo to `~/.dotfiles` and runs `install.sh`.
 
 `install.sh` is safe to re-run any time (e.g. after `git pull`, or to pick up
 config files added later) - it installs Homebrew if missing, installs
-packages from `config/brew/Brewfile` (and `config/brew/Brewfile.mac` on
+packages from `packages/Brewfile` (and `packages/Brewfile.mac` on
 macOS only, for GUI apps), then symlinks every config into place. Anything
 already at a destination path gets backed up (`<file>.backup-<timestamp>`)
 before being replaced.

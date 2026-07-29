@@ -9,20 +9,22 @@ DOTFILES_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &>/dev/null && pwd)
 LINK_SRC=(
 	"config/zsh/zshrc"
 	"config/git/gitconfig"
-	"config/nvim"
 	"config/alacritty"
 	"config/kitty"
 	"config/tmux/tmux.conf"
 	"config/starship/starship_hyprland.toml"
+	"config/nvim/lua/config/options.lua"
+	"config/nvim/lua/plugins/colorscheme.lua"
 )
 LINK_DEST=(
 	"${HOME}/.zshrc"
 	"${HOME}/.gitconfig"
-	"${HOME}/.config/nvim"
 	"${HOME}/.config/alacritty"
 	"${HOME}/.config/kitty"
 	"${HOME}/.config/tmux/tmux.conf"
 	"${HOME}/.config/starship.toml"
+	"${HOME}/.config/nvim/lua/config/options.lua"
+	"${HOME}/.config/nvim/lua/plugins/colorscheme.lua"
 )
 
 # link_item <repo-relative-src> <dest-path>
