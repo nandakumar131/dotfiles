@@ -13,6 +13,15 @@ export PATH="${HOME}/.dotfiles/bin:${PATH}"
 [ -f ~/.config/dotfiles/alias.local ] && source ~/.config/dotfiles/alias.local
 [ -f ~/.config/dotfiles/functions.local ] && source ~/.config/dotfiles/functions.local
 
+# Dynamically locate and load Homebrew
+if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+elif [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"
+elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv zsh)"
+fi
+
 # Homebrew prefix if present (macOS or Linuxbrew); empty otherwise so the
 # path lookups below just fall through to the plain Linux package paths.
 BREW_PREFIX=""
