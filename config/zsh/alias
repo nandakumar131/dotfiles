@@ -3,11 +3,10 @@ alias reload!='. ~/.zshrc'
 alias ji="${HOME}/.dotfiles/bin/jira"
 alias pd="${HOME}/.dotfiles/bin/pagerduty"
 alias gl="${HOME}/.dotfiles/bin/git-log"
-alias launcher="${HOME}/.dotfiles/bin/launcher"
 alias dotup="(cd ${HOME}/.dotfiles && git pull && ./install.sh)"
 
 command -v nvim >/dev/null 2>&1 && alias vi='nvim'
-command -v sesh >/dev/null 2>&1 && alias so='sesh connect "$(sesh list -t | fzf --margin=0,40 --height 20%)"'
+command -v sesh >/dev/null 2>&1 && alias sec='sesh connect "$(sesh list -t | fzf --margin=0,40 --height 20% --ansi --prompt ⚡)"'
 
 if command -v lsd >/dev/null 2>&1; then
   alias ls='lsd'

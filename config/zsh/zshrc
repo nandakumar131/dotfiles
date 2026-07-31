@@ -128,24 +128,19 @@ bindkey "^o" kill-line
 bindkey "^u" backward-kill-line
 bindkey "^b" backward-word
 
-# global launcher (bin/launcher): same idiom as fzf's own ctrl-r/ctrl-t
-# widgets - it only ever runs fzf (well-behaved, cleans up after itself).
-# On a selection, run it exactly like a typed command + Enter (accept-line)
-# rather than executing it inside this widget - matters because zle's own
-# redisplay can't track output written behind its back, which previously
-# clobbered command output when done the naive way.
 launcher-widget() {
 	local cmd
+  zle -I
 	cmd=$(launcher </dev/tty)
 	if [ -n "$cmd" ]; then
-		BUFFER="$cmd"
-		zle accept-line
-	else
-		zle reset-prompt
+    eval "$cmd"
 	fi
+  zle redisplay
 }
 zle -N launcher-widget
 bindkey "^g" launcher-widget
+
+bindkey -s "^t" "sec\n"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
