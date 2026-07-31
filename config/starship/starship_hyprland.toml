@@ -18,7 +18,7 @@ add_newline = false
 format = """
 
 ${directory} ${git_branch}
-${custom.char} ${character}
+${custom.char}${character}
 """
 
 [custom.char]
