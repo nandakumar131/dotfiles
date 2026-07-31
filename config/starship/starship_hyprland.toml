@@ -17,9 +17,16 @@ add_newline = false
 
 format = """
 
-$directory $git_branch
-$character
+${directory} ${git_branch}
+${custom.char} ${character}
 """
+
+[custom.char]
+disabled = false
+when = "test -f ~/.config/dotfiles/prompt.char.local"
+command = "cat ~/.config/dotfiles/prompt.char.local"
+format = "[$output]($style) "
+style = "bold cyan"
 
 # Replace the "❯" symbol in the prompt with "➜"
 [character]                            # The name of the module we are configuring is "character"
