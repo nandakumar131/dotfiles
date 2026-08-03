@@ -18,9 +18,9 @@ export PATH="${HOME}/.dotfiles/bin:${PATH}"
 [ -f ~/.dotfiles/config/zsh/functions ] && source ~/.dotfiles/config/zsh/functions
 
 # machine-local overrides/extras
-[ -f ~/.config/dotfiles/zshrc.local ] && source ~/.config/dotfiles/zshrc.local
-[ -f ~/.config/dotfiles/alias.local ] && source ~/.config/dotfiles/alias.local
-[ -f ~/.config/dotfiles/functions.local ] && source ~/.config/dotfiles/functions.local
+[ -f ~/.config/zsh/zshrc.local ] && source ~/.config/zsh/zshrc.local
+[ -f ~/.config/zsh/alias.local ] && source ~/.config/zsh/alias.local
+[ -f ~/.config/zsh/functions.local ] && source ~/.config/zsh/functions.local
 
 # Homebrew prefix if present (macOS or Linuxbrew); empty otherwise so the
 # path lookups below just fall through to the plain Linux package paths.

@@ -23,8 +23,8 @@ ${custom.char}${character}
 
 [custom.char]
 disabled = false
-when = "test -f ~/.config/dotfiles/prompt.char.local"
-command = "cat ~/.config/dotfiles/prompt.char.local"
+when = "test -f ~/.config/starship/prompt.char.local"
+command = "cat ~/.config/starship/prompt.char.local"
 format = "[$output]($style) "
 style = "bold cyan"
 
