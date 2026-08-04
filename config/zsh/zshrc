@@ -123,10 +123,8 @@ bindkey '^ ' forward-word
 bindkey "^[[A" history-search-backward
 bindkey "^[[B" history-search-forward
 
-# keybind for tmux
-bindkey "^o" kill-line
+# keybinding for tmux
 bindkey "^u" backward-kill-line
-bindkey "^b" backward-word
 
 launcher-widget() {
 	local cmd
