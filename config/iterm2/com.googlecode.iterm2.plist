@@ -1237,44 +1237,6 @@
 					<key>regex</key>
 					<string>\btelnet:([a-z0-9A-Z_]+@)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\b</string>
 				</dict>
-				<dict>
-					<key>actions</key>
-					<array>
-						<dict>
-							<key>action</key>
-							<integer>1</integer>
-							<key>parameter</key>
-							<string>https://t3.uberinternal.com/browse/\0</string>
-							<key>title</key>
-							<string>HDFS Jira</string>
-						</dict>
-					</array>
-					<key>notes</key>
-					<string>HDFS Jira</string>
-					<key>precision</key>
-					<string>high</string>
-					<key>regex</key>
-					<string>(?:HDFS|HINFRA|DEPENDREQ|UPA|URP|PLANPLAT|DLM|CLOUDMIG|SSD40M|TSTPGM-3189|YARNRED|HDFSRED|SO|IAM)-(\d+)</string>
-				</dict>
-				<dict>
-					<key>actions</key>
-					<array>
-						<dict>
-							<key>action</key>
-							<integer>1</integer>
-							<key>parameter</key>
-							<string>https://uber.pagerduty.com/incidents/\0</string>
-							<key>title</key>
-							<string>PagerDuty Incident</string>
-						</dict>
-					</array>
-					<key>notes</key>
-					<string>PagerDuty Alerts</string>
-					<key>precision</key>
-					<string>high</string>
-					<key>regex</key>
-					<string>\d{9}</string>
-				</dict>
 			</array>
 			<key>Sync Title</key>
 			<false/>
@@ -2536,25 +2498,6 @@
 					<string>very_high</string>
 					<key>regex</key>
 					<string>\btelnet:([a-z0-9A-Z_]+@)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\b</string>
-				</dict>
-				<dict>
-					<key>actions</key>
-					<array>
-						<dict>
-							<key>action</key>
-							<integer>1</integer>
-							<key>parameter</key>
-							<string>https://t3.uberinternal.com/browse/\0</string>
-							<key>title</key>
-							<string>HDFS Jira</string>
-						</dict>
-					</array>
-					<key>notes</key>
-					<string>HDFS Jira</string>
-					<key>precision</key>
-					<string>high</string>
-					<key>regex</key>
-					<string>(?:HDFS|HINFRA|DEPENDREQ|UPA|PLANPLAT)-(\d+)</string>
 				</dict>
 			</array>
 			<key>Space</key>
