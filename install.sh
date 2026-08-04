@@ -16,10 +16,24 @@ install_homebrew_if_missing() {
 	echo "Homebrew not found, installing it..."
 	NONINTERACTIVE=1 /bin/bash -c \
 		"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  activate_homebrew
+}
 
-	if [ "$OS" = "Linux" ] && [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-		eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-	fi
+activate_homebrew() {
+  local brew_bin
+
+  for brew_bin in \
+    /opt/homebrew/bin/brew \
+    /usr/local/bin/brew \
+    /home/linuxbrew/.linuxbrew/bin/brew
+  do
+    if [[ -x "$brew_bin" ]]; then
+      eval "$("$brew_bin" shellenv)"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 install_git_packages() {
