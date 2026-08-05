@@ -957,7 +957,6 @@ print_oncalls() {
     | [
         (.escalation_level // "-" | tostring),
         (.user.summary // .user.id // "-"),
-        (.escalation_policy.summary // "-"),
         (.schedule.summary // "Manual"),
         (.start | to_ist),
         (.end | to_ist)
@@ -976,7 +975,7 @@ print_oncalls() {
   fi
 
   {
-    printf 'LEVEL\tUSER\tESCALATION POLICY\tSCHEDULE\tSTART\tEND\n'
+    printf 'LEVEL\tUSER\tSCHEDULE\tSTART\tEND\n'
     printf '%s\n' "$rows"
   } | render_tsv_table 'CURRENT ON-CALL' 'oncall'
 }

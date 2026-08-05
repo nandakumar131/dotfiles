@@ -19,6 +19,10 @@ if command -v walk >/dev/null 2>&1; then
   alias lk='walk --icons'
 fi
 
+if command -v mdcat >/dev/null 2>&1; then
+  alias mdcat='mdcat --theme solarized-dark'
+fi 
+
 alias g='git'
 alias gbc='git rev-parse --abbrev-ref HEAD | tr -d "\n" | c'
 
