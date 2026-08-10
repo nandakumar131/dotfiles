@@ -1,4 +1,0 @@
-# macOS-only GUI apps (brew casks aren't supported on Linux)
-cask "alacritty"
-cask "iterm2"
-cask "rectangle"

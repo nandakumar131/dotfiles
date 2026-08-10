@@ -1,3 +1,12 @@
 # Packages installed via their own install script rather than a package manager.
-# Format: name|destination directory|install command
-sdkman|~/.sdkman|curl -s "https://get.sdkman.io" | bash
+# Format: name|platforms|dest|bin|install command
+#   platforms  all | darwin | linux | comma-separated manager names (e.g. apt,dnf) -
+#              used to target only the Linux managers that don't already carry a
+#              native package for this tool (see packages/packages.list)
+#   dest       directory the installer creates, or "-" to skip that check
+#   bin        binary the installer puts on PATH, or "-" to skip that check
+# A row is skipped if dest exists OR bin is already on PATH.
+sdkman|all|~/.sdkman|-|curl -s "https://get.sdkman.io" | bash
+starship|apt,dnf,zypper,apk,unknown|-|starship|curl -sS https://starship.rs/install.sh | sh -s -- --yes
+atuin|apt,dnf,pacman,zypper,apk,unknown|-|atuin|curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+yq|apt,dnf,zypper,apk,unknown|-|yq|arch=$(uname -m); [ "$arch" = x86_64 ] && arch=amd64; [ "$arch" = aarch64 ] && arch=arm64; sudo curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}" -o /usr/bin/yq && sudo chmod +x /usr/bin/yq

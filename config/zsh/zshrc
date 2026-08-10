@@ -49,15 +49,18 @@ compinit -i
 # widgets (zsh-autosuggestions, zsh-syntax-highlighting)
 _source_first \
 	"${BREW_PREFIX}/share/fzf-tab/fzf-tab.zsh" \
-	"/usr/share/fzf-tab/fzf-tab.zsh"
+	"/usr/share/fzf-tab/fzf-tab.zsh" \
+	"${HOME}/.config/zsh/plugins/fzf-tab/fzf-tab.zsh"
 
 _source_first \
 	"${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
-	"/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+	"/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+	"${HOME}/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 _source_first \
 	"${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
-	"/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+	"/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+	"${HOME}/.config/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
@@ -94,6 +97,9 @@ export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle --color=bg
 if command -v fd >/dev/null 2>&1; then
 	export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
 	export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+elif command -v fdfind >/dev/null 2>&1; then
+	export FZF_DEFAULT_COMMAND='fdfind --type f --hidden --exclude .git'
+	export FZF_ALT_C_COMMAND='fdfind --type d --hidden --exclude .git'
 fi
 
 # gum theming - match the catppuccin mocha accents used in tmux

@@ -1,74 +1,94 @@
 #!/usr/bin/env bash
 # Report the health of this dotfiles install: which symlinks are correct,
-# stale, or missing, and which expected tools aren't on PATH. Read-only -
-# never modifies anything. Run ./install.sh to fix what it reports.
+# stale, or missing, which expected tools aren't on PATH, and which optional
+# machine-local config files are present. Read-only - never modifies anything.
+# Run ./install.sh to fix what it reports.
 set -uo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/lib/link.sh"
+source "${SCRIPT_DIR}/lib/pkg.sh"
 
 echo "== symlinks =="
 check_all
 
 echo
 echo "== tools =="
-BREWFILE="${SCRIPT_DIR}/packages/Brewfile"
 
-# formula name -> binary name, for the few Brewfile entries where they differ
-declare -A BIN_OVERRIDES=(
-  [neovim]=nvim
-  [ripgrep]=rg
-  [ast-grep]=sg
-  [maven]=mvn
-  [difftastic]=difft
-  [tealdeer]=tldr
-)
-
-# formulas that don't provide a standalone binary (e.g. zsh plugins) fall
-# back to `brew list` when no matching binary is found on PATH
-command -v brew >/dev/null 2>&1 && echo "OK      brew" || echo "MISSING brew (expects 'brew' on PATH)"
-
-while IFS= read -r formula; do
-  bin="${BIN_OVERRIDES[$formula]:-$formula}"
-  if command -v "$bin" >/dev/null 2>&1; then
-    echo "OK      ${formula}"
-  elif brew list --versions "$formula" >/dev/null 2>&1; then
-    echo "OK      ${formula}"
-  else
-    echo "MISSING ${formula}"
-  fi
-done < <(grep -oE '^brew "[^"]+"' "$BREWFILE" | sed -E 's/^brew "([^"]+)"/\1/')
-
-if [ "$(uname -s)" = "Darwin" ]; then
-  BREWFILE_MAC="${SCRIPT_DIR}/packages/Brewfile.mac"
-  while IFS= read -r cask; do
-    if brew list --cask --versions "$cask" >/dev/null 2>&1; then
-      echo "OK      ${cask}"
-      continue
-    fi
-
-    app=$(brew info --cask "$cask" --json=v2 2>/dev/null | jq -r '.casks[0].artifacts[]? | select(.app) | .app[0]' | head -n1)
-    if [ -n "$app" ] && { [ -d "/Applications/${app}" ] || [ -d "${HOME}/Applications/${app}" ]; }; then
-      echo "OK      ${cask} (installed outside brew)"
-    else
-      echo "MISSING ${cask}"
-    fi
-  done < <(grep -oE '^cask "[^"]+"' "$BREWFILE_MAC" | sed -E 's/^cask "([^"]+)"/\1/')
+MANAGER=$(detect_manager)
+if [ "$MANAGER" = unknown ]; then
+	echo "MISSING package manager (could not detect brew/apt/dnf/pacman/zypper/apk)"
+else
+	echo "OK      package manager: ${MANAGER}"
 fi
 
+while IFS='|' read -r name bin platforms brew_pkg apt_pkg dnf_pkg pacman_pkg; do
+	[[ -z "$name" || "$name" == \#* ]] && continue
+
+	if ! platform_applies "$platforms" "$MANAGER"; then
+		echo "SKIP    ${name} (not applicable on this platform)"
+		continue
+	fi
+
+	case "$MANAGER" in
+	brew) pkgname="$brew_pkg" ;;
+	apt) pkgname="$apt_pkg" ;;
+	dnf) pkgname="$dnf_pkg" ;;
+	pacman) pkgname="$pacman_pkg" ;;
+	*) pkgname="-" ;;
+	esac
+
+	if pkg_installed "$bin" "$MANAGER" "$pkgname"; then
+		echo "OK      ${name}"
+	elif [ "$pkgname" = "-" ] || [ -z "$pkgname" ]; then
+		echo "MISSING ${name} (no known ${MANAGER} package - install manually)"
+	else
+		echo "MISSING ${name}"
+	fi
+done < "${SCRIPT_DIR}/packages/packages.list"
+
+# check_manifest <file>
+# script.install/git.install rows that don't apply to this platform (e.g. the
+# Linux-only starship/atuin/yq fallbacks on macOS, where packages.list already
+# installs them via brew) are silently skipped - packages.list is the source of
+# truth for whether the tool itself is installed, so a second "not applicable"
+# line here would just contradict the OK/MISSING already reported above.
 check_manifest() {
-  local file="$1"
-  local name dest cmd
-  while IFS='|' read -r name dest cmd; do
-    [[ -z "$name" || "$name" == \#* ]] && continue
-    dest="${dest/#\~/$HOME}"
-    if [ -d "$dest" ]; then
-      echo "OK      ${name}"
-    else
-      echo "MISSING ${name} (expects ${dest}, run ./install.sh)"
-    fi
-  done < "$file"
+	local file="$1"
+	local name platforms dest bin cmd_or_repo
+	while IFS='|' read -r name platforms dest bin cmd_or_repo; do
+		[[ -z "$name" || "$name" == \#* ]] && continue
+		platform_applies "$platforms" "$MANAGER" || continue
+
+		if dest_or_bin_installed "$dest" "$bin"; then
+			echo "OK      ${name}"
+		else
+			echo "MISSING ${name} (run ./install.sh)"
+		fi
+	done < "$file"
 }
 
 check_manifest "${SCRIPT_DIR}/packages/script.install"
 check_manifest "${SCRIPT_DIR}/packages/git.install"
+
+echo
+echo "== local overrides (optional, not tracked by this repo) =="
+
+LOCAL_FILES=(
+	"${HOME}/.config/zsh/zshrc.local"
+	"${HOME}/.config/zsh/alias.local"
+	"${HOME}/.config/zsh/functions.local"
+	"${HOME}/.config/launcher/commands.local"
+	"${HOME}/.config/git/gitconfig.local"
+	"${HOME}/.config/starship/prompt.char.local"
+	"${HOME}/.config/jira/jira.yaml"
+	"${HOME}/.config/pagerduty/pagerduty.yaml"
+)
+
+for local_file in "${LOCAL_FILES[@]}"; do
+	if [ -f "$local_file" ]; then
+		echo "OK      ${local_file}"
+	else
+		echo "-       ${local_file} (not present)"
+	fi
+done

@@ -1,4 +1,11 @@
 # Packages installed via `git clone` rather than a package manager.
-# Format: name|destination directory|repo url
-tpm|~/.config/tmux/plugins/tpm|https://github.com/tmux-plugins/tpm.git
-lazyvim|~/.config/nvim|https://github.com/LazyVim/starter
+# Format: name|platforms|dest|bin|repo url
+#   platforms  all | darwin | linux | comma-separated manager names
+#   dest       directory the clone creates, or "-" to skip that check
+#   bin        binary the package puts on PATH, or "-" to skip that check
+# A row is skipped if dest exists OR bin is already on PATH.
+tpm|all|~/.config/tmux/plugins/tpm|-|https://github.com/tmux-plugins/tpm.git
+lazyvim|all|~/.config/nvim|-|https://github.com/LazyVim/starter
+zsh-autosuggestions|all|~/.config/zsh/plugins/zsh-autosuggestions|-|https://github.com/zsh-users/zsh-autosuggestions
+zsh-syntax-highlighting|all|~/.config/zsh/plugins/zsh-syntax-highlighting|-|https://github.com/zsh-users/zsh-syntax-highlighting
+fzf-tab|all|~/.config/zsh/plugins/fzf-tab|-|https://github.com/Aloxaf/fzf-tab

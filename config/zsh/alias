@@ -21,7 +21,12 @@ fi
 
 if command -v mdcat >/dev/null 2>&1; then
   alias mdcat='mdcat --theme solarized-dark'
-fi 
+fi
+
+# Debian/Ubuntu ship these under different binary names (bat -> batcat,
+# fd -> fd-find's fdfind) to avoid clashes with unrelated packages.
+command -v bat >/dev/null 2>&1 || { command -v batcat >/dev/null 2>&1 && alias bat=batcat; }
+command -v fd >/dev/null 2>&1 || { command -v fdfind >/dev/null 2>&1 && alias fd=fdfind; }
 
 alias g='git'
 alias gbc='git rev-parse --abbrev-ref HEAD | tr -d "\n" | c'

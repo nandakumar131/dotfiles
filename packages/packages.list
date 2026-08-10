@@ -1,0 +1,44 @@
+# Cross-platform CLI packages, installed via Homebrew on macOS or the native Linux
+# package manager (apt/dnf/pacman - zypper/apk are detected but not yet mapped, see
+# README). GUI apps (Alacritty, iTerm2, Rectangle, Karabiner-Elements) are
+# intentionally not here - install those by hand; their configs still get linked
+# automatically once installed (see lib/link.sh).
+#
+# Format: name|bin|platforms|brew|apt|dnf|pacman
+#   name      canonical/display name
+#   bin       binary checked via `command -v` for "already installed" (skip logic in
+#             install.sh, status in doctor.sh); "-" if the package has no standalone
+#             binary (falls back to asking the package manager directly)
+#   platforms all | darwin | linux
+#   brew/apt/dnf/pacman
+#             package name for that manager, or "-" if there's no reliable official
+#             package - install.sh prints a "no package, install manually" notice and
+#             moves on rather than guessing
+git|git|all|git|git|git|git
+git-lfs|git-lfs|all|git-lfs|git-lfs|git-lfs|git-lfs
+gh|gh|all|gh|gh|gh|github-cli
+tmux|tmux|all|tmux|tmux|tmux|tmux
+neovim|nvim|all|neovim|neovim|neovim|neovim
+fzf|fzf|all|fzf|fzf|fzf|fzf
+ripgrep|rg|all|ripgrep|ripgrep|ripgrep|ripgrep
+bat|bat|all|bat|bat|bat|bat
+lsd|lsd|all|lsd|lsd|lsd|lsd
+walk|walk|all|walk|-|-|-
+jq|jq|all|jq|jq|jq|jq
+yq|yq|all|yq|-|-|yq
+starship|starship|all|starship|-|-|starship
+atuin|atuin|all|atuin|-|-|-
+zoxide|zoxide|all|zoxide|zoxide|zoxide|zoxide
+direnv|direnv|all|direnv|direnv|direnv|direnv
+ast-grep|sg|all|ast-grep|-|-|-
+difftastic|difft|all|difftastic|-|-|difftastic
+source-highlight|-|all|source-highlight|source-highlight|source-highlight|source-highlight
+maven|mvn|all|maven|maven|maven|maven
+fd|fd|all|fd|fd-find|fd-find|fd
+sesh|sesh|all|sesh|-|-|-
+gum|gum|all|gum|-|-|-
+tealdeer|tldr|all|tealdeer|tealdeer|tealdeer|tealdeer
+btop|btop|all|btop|btop|btop|btop
+dust|dust|all|dust|-|-|dust
+procs|procs|all|procs|-|-|procs
+mdcat|mdcat|all|mdcat|-|-|mdcat

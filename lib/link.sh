@@ -5,7 +5,9 @@
 DOTFILES_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &>/dev/null && pwd)
 
 # Parallel arrays (not an associative array - macOS ships bash 3.2, which
-# doesn't have them) of repo-relative source paths and their $HOME dest.
+# doesn't have them) of repo-relative source paths, their $HOME dest, and the
+# requirement that must be met before linking ("always", "bin:<name>" checked
+# via `command -v`, or "app:<Name>" checked against /Applications on macOS).
 LINK_SRC=(
 	"config/zsh/zshrc"
 	"config/git/gitconfig"
@@ -13,7 +15,7 @@ LINK_SRC=(
 	"config/kitty"
 	"config/tmux/tmux.conf"
 	"config/karabiner/karabiner.json"
-	"config/starship/starship_hyprland.toml"
+	"config/starship/starship.toml"
 	"config/nvim/lua/config/options.lua"
 	"config/nvim/lua/config/keymaps.lua"
 	"config/nvim/lua/plugins/colorscheme.lua"
@@ -30,11 +32,55 @@ LINK_DEST=(
 	"${HOME}/.config/nvim/lua/config/keymaps.lua"
 	"${HOME}/.config/nvim/lua/plugins/colorscheme.lua"
 )
+LINK_CHECK=(
+	"always"
+	"always"
+	"bin_or_app:alacritty:Alacritty"
+	"bin_or_app:kitty:kitty"
+	"bin:tmux"
+	"app:Karabiner-Elements"
+	"bin:starship"
+	"bin:nvim"
+	"bin:nvim"
+	"bin:nvim"
+)
 
-# link_item <repo-relative-src> <dest-path>
+# requirement_met <check> - true if the tool a config depends on is installed.
+requirement_met() {
+	local check="$1"
+
+	case "$check" in
+	always) return 0 ;;
+	bin:*) command -v "${check#bin:}" >/dev/null 2>&1 ;;
+	app:*)
+		local app="${check#app:}"
+		[ "$(uname -s)" = "Darwin" ] &&
+			{ [ -d "/Applications/${app}.app" ] || [ -d "${HOME}/Applications/${app}.app" ]; }
+		;;
+	bin_or_app:*)
+		# GUI apps that also ship a CLI on Linux but not always on macOS
+		# (e.g. a cask/manually-installed .app with no PATH symlink).
+		local rest="${check#bin_or_app:}"
+		local bin="${rest%%:*}"
+		local app="${rest#*:}"
+		command -v "$bin" >/dev/null 2>&1 && return 0
+		[ "$(uname -s)" = "Darwin" ] &&
+			{ [ -d "/Applications/${app}.app" ] || [ -d "${HOME}/Applications/${app}.app" ]; }
+		;;
+	*) return 0 ;;
+	esac
+}
+
+# link_item <repo-relative-src> <dest-path> <check>
 link_item() {
 	local src="${DOTFILES_DIR}/$1"
 	local dest="$2"
+	local check="$3"
+
+	if ! requirement_met "$check"; then
+		echo "skip (not installed): ${dest}"
+		return
+	fi
 
 	if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
 		echo "= up to date: ${dest}"
@@ -56,15 +102,21 @@ link_item() {
 link_all() {
 	local i
 	for i in "${!LINK_SRC[@]}"; do
-		link_item "${LINK_SRC[$i]}" "${LINK_DEST[$i]}"
+		link_item "${LINK_SRC[$i]}" "${LINK_DEST[$i]}" "${LINK_CHECK[$i]}"
 	done
 }
 
-# check_item <repo-relative-src> <dest-path>
+# check_item <repo-relative-src> <dest-path> <check>
 # Read-only status check used by doctor.sh - never touches the filesystem.
 check_item() {
 	local src="${DOTFILES_DIR}/$1"
 	local dest="$2"
+	local check="$3"
+
+	if ! requirement_met "$check"; then
+		echo "SKIP    ${dest} (tool not installed)"
+		return
+	fi
 
 	if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
 		echo "OK      ${dest}"
@@ -78,6 +130,6 @@ check_item() {
 check_all() {
 	local i
 	for i in "${!LINK_SRC[@]}"; do
-		check_item "${LINK_SRC[$i]}" "${LINK_DEST[$i]}"
+		check_item "${LINK_SRC[$i]}" "${LINK_DEST[$i]}" "${LINK_CHECK[$i]}"
 	done
 }
