@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+. ~/.config/zsh/zshrc.local 2>/dev/null
+
+if [[ $# -gt 0 ]]; then
+    ARG="$1"
+elif [[ ! -t 0 ]]; then
+    # Read from stdin
+    ARG=$(cat)
+else
+    echo "Error: expected a value as an argument or via stdin." >&2
+    echo "Usage: $0 <arg>" >&2
+    exit 1
+fi
+
+if [ $(uname) = "Darwin" ]; then
+    Launcher="open"
+else
+    Launcher="xdg-open"
+fi
+
+if echo "$ARG" | grep -Eq '^https?://'; then
+    # It's a web link: Open in browser
+    $Launcher "$ARG"
+elif echo "$ARG" | grep -Eq '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
+    # It's an email: Open email client
+    $Launcher "mailto:$ARG"
+elif echo "$ARG" | grep -Eq '(HDFS|HINFRA|DEPENDREQ|UPA|URP|PLANPLAT|DLM|CLOUDMIG|SSD40M|TSTPGM|YARNRED|HDFSRED|SO|IAM)-(\d+)'; then
+    # It's jira: Open in browser
+    $Launcher "$JIRA_BASE_URL/browse/$ARG"
+elif echo "$ARG" | grep -Eq '(\d{9})'; then
+    # It's Incident: Open in browser
+    $Launcher "$PAGERDUTY_BASE_URL/incidents/$ARG"
+else
+    # Default action: Just copy to system clipboard
+    echo "$ARG" | xclip -selection clipboard 2>/dev/null || echo "$ARG" | pbcopy
+fi

@@ -8,7 +8,7 @@
 	process = git-lfs filter-process
 	required = true
 [init]
-	defaultBranch = master
+	defaultBranch = main
 [diff]
 	external = difft
 [alias]
@@ -25,3 +25,7 @@
   a = !git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
 [gpg]
 	format = x509
+[include]
+  path = ~/.config/git/gitconfig.local
+[gpg "x509"]
+	program = /opt/uber/bin/signingfx

@@ -7,7 +7,7 @@
                     {
                         "manipulators": [
                             {
-                                "description": "Change caps_lock to command+control+option+shift.",
+                                "description": "Caps Lock: hold for Hyper (command+control+option+shift), tap alone for Escape.",
                                 "from": {
                                     "key_code": "caps_lock",
                                     "modifiers": { "optional": ["any"] }
@@ -17,6 +17,58 @@
                                         "key_code": "left_shift",
                                         "modifiers": ["left_command", "left_control", "left_option"]
                                     }
+                                ],
+                                "to_if_alone": [
+                                    { "key_code": "escape" }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Hyper+letter: launch/focus apps without the mouse.",
+                        "manipulators": [
+                            {
+                                "description": "Hyper+T -> Alacritty",
+                                "from": {
+                                    "key_code": "t",
+                                    "modifiers": { "mandatory": ["left_command", "left_control", "left_option", "left_shift"] }
+                                },
+                                "to": [
+                                    { "shell_command": "open -a 'Alacritty'" }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "description": "Hyper+B -> Google Chrome",
+                                "from": {
+                                    "key_code": "b",
+                                    "modifiers": { "mandatory": ["left_command", "left_control", "left_option", "left_shift"] }
+                                },
+                                "to": [
+                                    { "shell_command": "open -a 'Google Chrome'" }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "description": "Hyper+S -> Slack",
+                                "from": {
+                                    "key_code": "s",
+                                    "modifiers": { "mandatory": ["left_command", "left_control", "left_option", "left_shift"] }
+                                },
+                                "to": [
+                                    { "shell_command": "open -a 'Slack'" }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "description": "Hyper+O -> Obsidian",
+                                "from": {
+                                    "key_code": "o",
+                                    "modifiers": { "mandatory": ["left_command", "left_control", "left_option", "left_shift"] }
+                                },
+                                "to": [
+                                    { "shell_command": "open -a 'Obsidian'" }
                                 ],
                                 "type": "basic"
                             }

@@ -38,9 +38,9 @@ _source_first() {
 
 command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
 command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
-command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 
 autoload -U compinit
 compinit -i
@@ -93,7 +93,6 @@ export FZF_DEFAULT_OPTS='--height 70% --reverse --inline-info --cycle --color=bg
 
 if command -v fd >/dev/null 2>&1; then
 	export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
-	export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 	export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
 fi
 
@@ -115,10 +114,12 @@ setopt hist_expire_dups_first
 setopt hist_ignore_dups
 setopt hist_verify
 
+autoload -U edit-command-line && zle -N edit-command-line
+
 # keybindings
 bindkey -e
 bindkey '^ ' forward-word
-#bindkey "^i" vi-cmd-mode
+bindkey '^e' edit-command-line
 
 bindkey "^[[A" history-search-backward
 bindkey "^[[B" history-search-forward
@@ -138,6 +139,7 @@ launcher-widget() {
 zle -N launcher-widget
 bindkey "^g" launcher-widget
 
+bindkey -s "^f" "zi\n"
 bindkey -s "^t" "sec\n"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!

@@ -1,7 +1,21 @@
 
 rtmux() {
-    case "$2" in
-        "") autossh -M 0 $1 -t "if tmux -qu has; then tmux -qu attach; else tmux -qu new; fi";;
-         *) autossh -M 0 $1 -t "if tmux -qu has -t $2; then tmux -qu attach -t $2; else tmux -qu new -s $2; fi";;
-    esac
+  case "$2" in
+    "") autossh -M 0 $1 -t "if tmux -qu has; then tmux -qu attach; else tmux -qu new; fi";;
+    *) autossh -M 0 $1 -t "if tmux -qu has -t $2; then tmux -qu attach -t $2; else tmux -qu new -s $2; fi";;
+  esac
+}
+
+today() {
+  grep -r -E "\[ \].*#today" ${VAULT_BASE:-"~/vault"} | awk -F '\\[ \\]' '{print "-" $2}' | awk '{NF--; print}' | mdcat --columns 150
+}
+
+todo() {
+  grep --color -r '^\- \[ ]' ${VAULT_BASE:-"~/vault"} | grep "Daily Notes" | awk -F '\\[ \\]' '{print "-" $2}' | mdcat --columns 150
+}
+
+e() {
+  local file
+  file=$(fd --type f --hidden --exclude .git | fzf --query="$1" --select-1 --exit-0 --preview 'bat --style=numbers --color=always --line-range :50 {} 2>/dev/null || cat {}')
+  [[ -n "$file" ]] && ${EDITOR:-vim} "$file"
 }
