@@ -43,6 +43,8 @@
 			<true/>
 			<key>Ambiguous Double Width</key>
 			<false/>
+			<key>Animate Movement</key>
+			<true/>
 			<key>Ansi 0 Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -923,6 +925,8 @@
 				<key>Red Component</key>
 				<real>1</real>
 			</dict>
+			<key>Cursor Type</key>
+			<integer>2</integer>
 			<key>Custom Command</key>
 			<string>No</string>
 			<key>Custom Directory</key>
@@ -932,7 +936,7 @@
 			<key>Description</key>
 			<string>Default</string>
 			<key>Disable Window Resizing</key>
-			<true/>
+			<false/>
 			<key>Enable Triggers in Interactive Apps</key>
 			<true/>
 			<key>Flashing Bell</key>
@@ -1039,7 +1043,7 @@
 			<key>Non-ASCII Anti Aliased</key>
 			<true/>
 			<key>Normal Font</key>
-			<string>RecMonoCasualNF 12</string>
+			<string>HackNFM-Regular 12</string>
 			<key>Option Key Sends</key>
 			<integer>0</integer>
 			<key>Prompt Before Closing 2</key>
@@ -1248,6 +1252,10 @@
 			<real>0.0</real>
 			<key>Triggers</key>
 			<array/>
+			<key>Unicode Normalization</key>
+			<integer>0</integer>
+			<key>Unicode Version</key>
+			<integer>9</integer>
 			<key>Unlimited Scrollback</key>
 			<true/>
 			<key>Use Bold Font</key>
