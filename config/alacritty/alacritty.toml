@@ -69,8 +69,8 @@ style = "Italic"
 [window]
 decorations = "buttonless"
 dynamic_padding = true
-opacity = 0.80
-blur = true
+opacity = 0.75
+blur = false
 option_as_alt = "Both"
 startup_mode = "Windowed"
 

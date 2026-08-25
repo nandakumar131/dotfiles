@@ -15,6 +15,10 @@ if command -v lsd >/dev/null 2>&1; then
   alias tree='lsd --tree'
 fi
 
+if command -v zoxide >/dev/null 2>&1; then
+  alias goto='z'
+fi
+
 if command -v walk >/dev/null 2>&1; then
   alias lk='walk --icons'
 fi

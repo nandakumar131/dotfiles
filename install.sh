@@ -124,7 +124,7 @@ cat <<'EOF'
 Done. Final status:
 EOF
 
+. ~/.zshrc
+
 "${SCRIPT_DIR}/doctor.sh" || true
 
-echo
-echo "Open a new shell to pick everything up."

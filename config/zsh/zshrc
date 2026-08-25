@@ -14,6 +14,8 @@ fi
 fpath=( ${HOME}/.dotfiles/autocomplete "${fpath[@]}" )
 export PATH="${HOME}/.dotfiles/bin:${PATH}"
 
+[ -f ~/.atuin/bin/atuin ] && export PATH="${HOME}/.atuin/bin:${PATH}"
+
 [ -f ~/.dotfiles/config/zsh/alias ] && source ~/.dotfiles/config/zsh/alias
 [ -f ~/.dotfiles/config/zsh/functions ] && source ~/.dotfiles/config/zsh/functions
 
